@@ -1,0 +1,402 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Outfit', sans-serif;
+    @apply bg-slate-50 text-slate-800 antialiased;
+    scroll-behavior: smooth;
+  }
+
+  /* Personalizacion del scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-slate-100 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full hover:bg-slate-400 transition-colors;
+  }
+
+  /* Seleccion de texto */
+  ::selection {
+    @apply bg-blue-100 text-blue-900;
+  }
+}
+
+@layer components {
+  /* Boton Principal Institucional */
+  .btn-primary {
+    @apply bg-gradient-to-r from-blue-700 to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 shadow-[0_8px_15px_-3px_rgba(37,99,235,0.3)] relative overflow-hidden;
+  }
+  
+  .btn-primary::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] transition-transform duration-700;
+  }
+  
+  .btn-primary:hover::before {
+    @apply translate-x-[100%];
+  }
+  
+  .btn-primary:hover {
+    @apply shadow-[0_15px_20px_-3px_rgba(37,99,235,0.4)] -translate-y-0.5;
+  }
+  
+  .btn-primary:active {
+    @apply scale-95;
+  }
+
+  /* Boton Secundario (Cancelar / Volver) */
+  .btn-secondary {
+    @apply bg-white text-slate-600 font-bold border-2 border-slate-200 py-2.5 px-6 rounded-xl transition-all duration-200 flex items-center justify-center gap-2;
+  }
+  
+  .btn-secondary:hover {
+    @apply bg-slate-50 border-slate-300 text-slate-800;
+  }
+  
+  .btn-secondary:active {
+    @apply scale-95;
+  }
+
+  /* Tarjetas Flotantes */
+  .card-institucional {
+    @apply bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden transition-all duration-300;
+  }
+
+  .card-institucional:hover {
+    @apply shadow-[0_12px_40px_rgb(0,0,0,0.08)] -translate-y-1;
+  }
+
+  /* Efecto Cristal (Para el Navbar) */
+  .glass-effect {
+    @apply bg-white/90 border-b border-slate-200/50;
+  }
+
+  /* Soporte nativo y seguro para el desenfoque */
+  @supports (backdrop-filter: blur(4px)) {
+    .glass-effect {
+      @apply bg-white/60 backdrop-blur-md;
+    }
+  }
+
+  /* Efecto Cristal Premium */
+  .glass-effect-premium {
+    @apply bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_4px_24px_rgba(0,0,0,0.06)];
+  }
+}
+
+/* ============================================ */
+/* ANIMACIONES DE ENTRADA Y MOVIMIENTO          */
+/* ============================================ */
+
+/* Animacion de entrada suave */
+.fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+/* Animacion de deslizamiento desde la derecha */
+.slide-in-right {
+  animation: slideRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideRight {
+  from { 
+    transform: translateX(100%); 
+    opacity: 0; 
+  }
+  to { 
+    transform: translateX(0); 
+    opacity: 1; 
+  }
+}
+
+/* Animacion de deslizamiento desde la izquierda */
+.slide-in-left {
+  animation: slideLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideLeft {
+  from { 
+    transform: translateX(-100%); 
+    opacity: 0; 
+  }
+  to { 
+    transform: translateX(0); 
+    opacity: 1; 
+  }
+}
+
+/* Animacion de expansion vertical */
+.expand-vertical {
+  animation: expandDown 0.3s ease-out;
+  transform-origin: top;
+}
+
+@keyframes expandDown {
+  from { 
+    transform: scaleY(0); 
+    opacity: 0; 
+  }
+  to { 
+    transform: scaleY(1); 
+    opacity: 1; 
+  }
+}
+
+/* ============================================ */
+/* ANIMACIONES DE EFECTOS ESPECIALES            */
+/* ============================================ */
+
+/* Efecto de pulso para estados activos */
+.pulse-active {
+  animation: pulseBorder 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulseBorder {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); 
+  }
+  50% { 
+    box-shadow: 0 0 0 8px rgba(37, 99, 235, 0); 
+  }
+}
+
+/* Efecto shimmer para carga de datos */
+.shimmer {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { 
+    background-position: 200% 0; 
+  }
+  100% { 
+    background-position: -200% 0; 
+  }
+}
+
+/* Efecto de parpadeo para alertas */
+.alert-blink {
+  animation: blinkWarning 1s infinite;
+}
+
+@keyframes blinkWarning {
+  0%, 100% { 
+    opacity: 1; 
+  }
+  50% { 
+    opacity: 0.5; 
+  }
+}
+
+/* Efecto de rebote sutil */
+.bounce-subtle {
+  animation: bounceSmooth 2s infinite;
+}
+
+@keyframes bounceSmooth {
+  0%, 100% { 
+    transform: translateY(0); 
+  }
+  50% { 
+    transform: translateY(-5px); 
+  }
+}
+
+/* ============================================ */
+/* ANIMACIONES DE ESTADO Y NOTIFICACIONES       */
+/* ============================================ */
+
+/* Pulso de notificacion */
+.notification-pulse {
+  animation: notificationPulse 2s infinite;
+}
+
+@keyframes notificationPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+/* Indicador de actividad */
+.activity-dot {
+  animation: activityPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes activityPulse {
+  0%, 100% { 
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% { 
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+}
+
+/* ============================================ */
+/* ANIMACIONES DE ENTRADA PARA LISTAS           */
+/* ============================================ */
+
+/* Stagger animation para items de lista */
+.stagger-item {
+  opacity: 0;
+  animation: staggerFadeIn 0.5s ease-out forwards;
+}
+
+@keyframes staggerFadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+/* ============================================ */
+/* EFECTOS DE HOVER Y TRANSICIONES              */
+/* ============================================ */
+
+/* Elevacion en hover */
+.hover-elevate {
+  @apply transition-all duration-300;
+}
+
+.hover-elevate:hover {
+  @apply -translate-y-1 shadow-lg;
+}
+
+/* Escala en hover */
+.hover-scale {
+  @apply transition-transform duration-300;
+}
+
+.hover-scale:hover {
+  @apply scale-105;
+}
+
+/* Brillo en hover */
+.hover-glow {
+  @apply transition-all duration-300;
+}
+
+.hover-glow:hover {
+  @apply shadow-[0_0_20px_rgba(37,99,235,0.3)];
+}
+
+/* ============================================ */
+/* UTILIDADES DE ANIMACION                      */
+/* ============================================ */
+
+/* Delay de animacion personalizables */
+.animation-delay-100 {
+  animation-delay: 100ms;
+}
+
+.animation-delay-200 {
+  animation-delay: 200ms;
+}
+
+.animation-delay-300 {
+  animation-delay: 300ms;
+}
+
+.animation-delay-400 {
+  animation-delay: 400ms;
+}
+
+.animation-delay-500 {
+  animation-delay: 500ms;
+}
+
+.animation-delay-1000 {
+  animation-delay: 1000ms;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2000ms;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4000ms;
+}
+
+/* Duracion de animaciones */
+.animation-duration-300 {
+  animation-duration: 300ms;
+}
+
+.animation-duration-500 {
+  animation-duration: 500ms;
+}
+
+.animation-duration-700 {
+  animation-duration: 700ms;
+}
+
+.animation-duration-1000 {
+  animation-duration: 1000ms;
+}
+
+/* ============================================ */
+/* MEJORAS DE ACCESIBILIDAD                     */
+/* ============================================ */
+
+/* Reduccion de movimiento para usuarios que lo prefieren */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================ */
+/* IMPRESION                                    */
+/* ============================================ */
+
+@media print {
+  .glass-effect,
+  .glass-effect-premium {
+    @apply bg-white border-none shadow-none;
+    backdrop-filter: none;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    @apply shadow-none;
+  }
+}
