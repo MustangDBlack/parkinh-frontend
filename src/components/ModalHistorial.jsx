@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
 
+// DEFINICIÓN DE LA URL BASE DESDE EL ENTORNO
+const BACKEND_URL = import.meta.env.VITE_APP_BACKEND_URL;
+
 export default function ModalHistorial({ usuario, onClose, onPagarDeuda }) {
   const [historial, setHistorial] = useState([]);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    // 🚀 Obtenemos el historial fresco del backend
-    fetch(`http://localhost:8080/api/reservas/usuario/${usuario.username}`)
+    // 🚀 Obtenemos el historial fresco del backend usando la variable de entorno
+    fetch(`${BACKEND_URL}/api/reservas/usuario/${usuario.username}`)
       .then(res => res.json())
       .then(data => {
         setHistorial(data);
