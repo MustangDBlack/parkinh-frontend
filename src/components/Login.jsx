@@ -27,6 +27,9 @@ const CARRERAS_IES = [
   "Tecnicatura Superior en Higiene y Seguridad en el Laburo"
 ];
 
+// DEFINICIÓN DE LA URL BASE DESDE EL ENTORNO
+const BACKEND_URL = import.meta.env.VITE_APP_BACKEND_URL;
+
 export default function Login({ onLogin, errorLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -76,7 +79,8 @@ export default function Login({ onLogin, errorLogin }) {
         dni: tipoPerfil === 'PARTICULAR' ? dni : null
       };
 
-      fetch('http://localhost:8080/api/usuarios/registro', {
+      // FETCH CORREGIDO CON LA VARIABLE DE ENTORNO
+      fetch(`${BACKEND_URL}/api/usuarios/registro`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
