@@ -27,7 +27,7 @@ function App() {
   if (path === '/pago-fallido') return <EstadoPago estado="fallido" />;
 
   // VARIABLE DE ENTORNO LEÍDA DE FORMA SEGURA DENTRO DEL COMPONENTE
-  const BACKEND_URL = import.meta.env.VITE_APP_BACKEND_URL || 'http://localhost:8080';
+  const BACKEND_URL = import.meta.env.VITE_APP_BACKEND_URL;
 
   // BLINDAJE 1: Lectura segura del LocalStorage
   const [usuario, setUsuario] = useState(() => {
