@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 
+// DEFINICIÓN DE LA URL BASE DESDE EL ENTORNO
+const BACKEND_URL = import.meta.env.VITE_APP_BACKEND_URL;
+
 export default function ModalFicha({ info, onClose, onLiberar }) {
   const [perfil, setPerfil] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -7,7 +10,9 @@ export default function ModalFicha({ info, onClose, onLiberar }) {
   useEffect(() => {
     if (info && info.reserva) {
       const patenteLimpia = info.reserva.patente.replace(/\s+/g, '').toUpperCase();
-      fetch(`http://localhost:8080/api/usuarios/patente/${patenteLimpia}`)
+      
+      // FETCH CORREGIDO CON LA VARIABLE DE ENTORNO
+      fetch(`${BACKEND_URL}/api/usuarios/patente/${patenteLimpia}`)
         .then(res => {
           if (!res.ok) throw new Error("No registrado");
           return res.json();
