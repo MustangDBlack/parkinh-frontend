@@ -26,6 +26,9 @@ function App() {
   if (path === '/pago-pendiente') return <EstadoPago estado="pendiente" />;
   if (path === '/pago-fallido') return <EstadoPago estado="fallido" />;
 
+  // VARIABLE DE ENTORNO LEÍDA DE FORMA SEGURA DENTRO DEL COMPONENTE
+  const BACKEND_URL = import.meta.env.VITE_APP_BACKEND_URL || 'http://localhost:8080';
+
   // BLINDAJE 1: Lectura segura del LocalStorage
   const [usuario, setUsuario] = useState(() => {
     try {
@@ -184,8 +187,9 @@ function App() {
     return () => unsubscribe();
   }, [miCochera]); 
 
+  // 1. Cargar cocheras
   const cargarCocheras = () => {
-    fetch('http://localhost:8080/api/cocheras')
+    fetch(`${BACKEND_URL}/api/cocheras`)
       .then(res => {
         if (!res.ok) throw new Error("Error en servidor al cargar cocheras.");
         return res.json();
@@ -197,8 +201,9 @@ function App() {
       });
   };
 
+  // 2. Cargar reservas
   const cargarReservas = () => {
-    fetch('http://localhost:8080/api/reservas')
+    fetch(`${BACKEND_URL}/api/reservas`)
       .then(res => {
         if (!res.ok) throw new Error("Error del servidor al cargar reservas.");
         return res.json();
@@ -210,9 +215,10 @@ function App() {
       });
   };
 
+  // 3. Login
   const handleLogin = (user, pass) => {
     setErrorLogin('');
-    fetch('http://localhost:8080/api/usuarios/login', {
+    fetch(`${BACKEND_URL}/api/usuarios/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: user, password: pass })
@@ -248,8 +254,9 @@ function App() {
     setMostrarHistorial(false); 
   };
 
+  // 4. Liberar Cochera
   const liberarCochera = (codigo) => {
-    fetch(`http://localhost:8080/api/cocheras/${codigo}/salida`, { method: 'POST' })
+    fetch(`${BACKEND_URL}/api/cocheras/${codigo}/salida`, { method: 'POST' })
     .then(async res => {
       if (!res.ok) {
         const errorText = await res.text();
@@ -304,7 +311,6 @@ function App() {
     }
 
     if (!lugar.ocupado) {
-      // 🚀 RESTRICCIÓN: El Administrador no puede reservar lugares manualmente
       if (usuario.rol === 'ADMIN') {
         setNotificacion({
           tipo: 'info',
@@ -335,6 +341,7 @@ function App() {
     }
   };
 
+  // 5. Procesar Reserva
   const procesarReserva = (codigo, patente, tipoPase, turno, monto) => {
     setTimeout(() => {
       const params = new URLSearchParams({ 
@@ -345,7 +352,7 @@ function App() {
         username: usuario.username 
       }).toString();
 
-      fetch(`http://localhost:8080/api/cocheras/${codigo}/entrada?${params}`, { method: 'POST' })
+      fetch(`${BACKEND_URL}/api/cocheras/${codigo}/entrada?${params}`, { method: 'POST' })
       .then(async res => {
         if (!res.ok) {
            const errorData = await res.json().catch(() => ({ message: 'Error de red o servidor' }));
@@ -387,7 +394,6 @@ function App() {
     }, 500); 
   };
 
-  // FLUJO DE PAGO DE DEUDAS (MERCADO PAGO)
   const procesarPagoDeuda = (reserva) => {
     setMostrarHistorial(false);
     
@@ -405,14 +411,14 @@ function App() {
     }, 1000);
   };
 
-  // CUANDO EL USUARIO CIERRA / CONFIRMA EL PAGO DE MERCADO PAGO
+  // 6. Finalizar Pago Mercado Pago
   const finalizarPagoMercadoPago = () => {
     setPreferenceId(null);
     
     const reservaId = window._reservaDeudaActiva;
     if (!reservaId) return;
 
-    fetch(`http://localhost:8080/api/reservas/${reservaId}/pagar-deuda`, { method: 'PUT' })
+    fetch(`${BACKEND_URL}/api/reservas/${reservaId}/pagar-deuda`, { method: 'PUT' })
       .then(async res => {
         if (!res.ok) throw new Error("El servidor no pudo procesar la cancelación de la deuda.");
         return res.json();
@@ -434,10 +440,11 @@ function App() {
       });
   };
 
+  // 7. Agregar Cochera
   const agregarCochera = (e) => {
     e.preventDefault();
     if (!nuevoCodigo) return;
-    fetch('http://localhost:8080/api/cocheras', {
+    fetch(`${BACKEND_URL}/api/cocheras`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ codigo: nuevoCodigo.toUpperCase(), tipo: "ESTANDAR", ocupado: false, tarifaActual: 0 })
@@ -459,12 +466,13 @@ function App() {
     });
   };
 
+  // 8. Eliminar Cochera
   const eliminarCochera = (codigo) => {
     if (usuario.rol !== 'ADMIN') return;
     const confirmar = window.confirm(`¿Estás seguro de eliminar definitivamente el cajón ${codigo}?`);
     if (!confirmar) return;
 
-    fetch(`http://localhost:8080/api/cocheras/${codigo}`, { method: 'DELETE' })
+    fetch(`${BACKEND_URL}/api/cocheras/${codigo}`, { method: 'DELETE' })
     .then(async res => {
       if (!res.ok) throw new Error("No se pudo eliminar el lugar.");
       cargarCocheras();
@@ -481,20 +489,21 @@ function App() {
     });
   };
 
+  // 9. Probar Firebase
   const probarFirebase = async () => {
     const token = await solicitarPermisoNotificaciones();
     if (token) {
       if (usuario) {
-        fetch(`http://localhost:8080/api/usuarios/${usuario.username}/fcm-token`, {
+        fetch(`${BACKEND_URL}/api/usuarios/${usuario.username}/fcm-token`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: token })
         })
         .then(res => {
           if (res.ok) {
-            alert("✅ ¡Campus Inteligente Activado! Tu dispositivo fue enlazado a tu cuenta.");
+             alert("✅ ¡Campus Inteligente Activado! Tu dispositivo fue enlazado a tu cuenta.");
           } else {
-            alert("⚠️ El navegador obtuvo el token, pero el servidor backend falló al almacenarlo.");
+             alert("⚠️ El navegador obtuvo el token, pero el servidor backend falló al almacenarlo.");
           }
         })
         .catch(err => {
@@ -532,7 +541,6 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 print:bg-white print:min-h-0 transition-colors duration-500">
       
-      {/* Sistema de notificaciones integradas */}
       {notificacion && (
         <NotificacionPush 
           tipo={notificacion.tipo} 
@@ -541,7 +549,6 @@ function App() {
         />
       )}
 
-      {/* Barra de navegación conectada al historial */}
       <Navbar 
         usuario={usuario} 
         vista={vista} 
@@ -559,10 +566,8 @@ function App() {
         </button>
       </div>
 
-      {/* Contenido principal */}
       <div className="max-w-6xl mx-auto p-6 print:p-0 animate-[fadeIn_0.5s_ease-out]">
         
-        {/* Fondo decorativo sutil */}
         <div className="fixed inset-0 pointer-events-none opacity-[0.02]">
           <div className="absolute top-20 left-10 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl animate-[pulse_8s_infinite]"></div>
           <div className="absolute bottom-20 right-10 w-96 h-96 bg-emerald-500 rounded-full mix-blend-multiply filter blur-3xl animate-[pulse_10s_infinite]"></div>
@@ -589,7 +594,6 @@ function App() {
 
       </div>
 
-      {/* MODAL DEL HISTORIAL Y DEUDAS */}
       {mostrarHistorial && (
         <ModalHistorial 
           usuario={usuario} 
@@ -598,7 +602,6 @@ function App() {
         />
       )}
 
-      {/* Modales Clásicos */}
       <TicketModal ticketModal={ticketModal} setTicketModal={setTicketModal} imprimirTicket={() => window.print()} />
 
       {lugarParaReservar && !preferenceId && (
@@ -610,7 +613,6 @@ function App() {
         />
       )}
 
-      {/* MODAL DEL BOTÓN DE MERCADO PAGO ACTUALIZADO */}
       {preferenceId && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center animate-[fadeIn_0.3s_ease-out]">
