@@ -29,7 +29,7 @@ function App() {
   // VARIABLE DE ENTORNO LEÍDA DE FORMA SEGURA DENTRO DEL COMPONENTE
   const BACKEND_URL = import.meta.env.VITE_APP_BACKEND_URL;
 
-  // BLINDAJE 1: Lectura segura del LocalStorage
+  // BLINDAJE 1: Lectura segura del LocalStorage para la sesión del usuario
   const [usuario, setUsuario] = useState(() => {
     try {
       const usuarioGuardado = localStorage.getItem('usuario_parquimetro');
@@ -48,20 +48,9 @@ function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  // --- MEMORIA DEL USUARIO ---
-  const [miCochera, setMiCochera] = useState(() => {
-    try {
-      if (usuario) return localStorage.getItem(`mi_cochera_${usuario.username}`) || null;
-    } catch (e) { return null; }
-    return null;
-  });
-
-  const [miPatente, setMiPatente] = useState(() => {
-    try {
-      if (usuario) return localStorage.getItem(`mi_patente_${usuario.username}`) || null;
-    } catch (e) { return null; }
-    return null;
-  });
+  // --- ESTADOS DINÁMICOS EN BASE A LA BASE DE DATOS ---
+  const [miCochera, setMiCochera] = useState(null);
+  const [miPatente, setMiPatente] = useState(null);
 
   const [cocheras, setCocheras] = useState([]);
   const [nuevoCodigo, setNuevoCodigo] = useState('');
@@ -88,14 +77,33 @@ function App() {
     }
   }, [usuario]);
 
-  // --- VALIDACIÓN DE INTEGRIDAD ---
+  // 🚀 SARRIL: MOTOR DE SINCRONIZACIÓN MULTIDISPOSITIVO REAL-TIME
+  // Este hook analiza las reservas globales del servidor y determina tu estado actual.
+  useEffect(() => {
+    if (usuario && usuario.rol === 'USER' && reservas.length > 0) {
+      const miReservaActiva = [...reservas]
+        .sort((a, b) => b.id - a.id)
+        .find(r => !r.horaSalida && r.usuario?.username === usuario.username);
+
+      if (miReservaActiva) {
+        setMiCochera(miReservaActiva.cochera?.codigo || null);
+        setMiPatente(miReservaActiva.patente || null);
+      } else {
+        setMiCochera(null);
+        setMiPatente(null);
+      }
+    } else if (!usuario) {
+      setMiCochera(null);
+      setMiPatente(null);
+    }
+  }, [reservas, usuario]);
+
+  // --- VALIDACIÓN DE INTEGRIDAD DESDE EL BACKEND ---
   useEffect(() => {
     if (usuario?.rol === 'USER' && miCochera && cocheras.length > 0) {
       const cocheraExiste = cocheras.find(c => c.codigo === miCochera);
       
       if (!cocheraExiste) {
-        localStorage.removeItem(`mi_cochera_${usuario.username}`);
-        localStorage.removeItem(`mi_patente_${usuario.username}`);
         setMiCochera(null);
         setMiPatente(null);
         setNotificacion({
@@ -230,19 +238,12 @@ function App() {
     .then(data => {
       setUsuario(data);
       localStorage.setItem('usuario_parquimetro', JSON.stringify(data));
-      
-      const cocheraGuardada = localStorage.getItem(`mi_cochera_${data.username}`);
-      const patenteGuardada = localStorage.getItem(`mi_patente_${data.username}`);
-      setMiCochera(cocheraGuardada || null);
-      setMiPatente(patenteGuardada || null);
     })
     .catch(err => setErrorLogin(err.message));
   };
 
   const handleLogout = () => {
     setUsuario(null);
-    setMiCochera(null); 
-    setMiPatente(null); 
     localStorage.removeItem('usuario_parquimetro');
     
     setVista('mapa');
@@ -267,15 +268,6 @@ function App() {
     .then(data => {
       cargarCocheras();
       cargarReservas();
-      
-      if (usuario.rol === 'USER') {
-        localStorage.removeItem(`mi_cochera_${usuario.username}`);
-        localStorage.removeItem(`mi_patente_${usuario.username}`);
-        setMiCochera(null);
-        setMiPatente(null);
-        setNotificacion(null); 
-      }
-      
       setLugarOcupadoInfo(null); 
 
       if (data && data.estadoPago === 'PENDIENTE') {
@@ -364,13 +356,6 @@ function App() {
         return res.json(); 
       })
       .then(ticket => {
-        if (usuario.rol === 'USER') {
-          localStorage.setItem(`mi_cochera_${usuario.username}`, codigo);
-          localStorage.setItem(`mi_patente_${usuario.username}`, patente); 
-          setMiCochera(codigo);
-          setMiPatente(patente); 
-        }
-
         setLugarParaReservar(null); 
         cargarCocheras();
         cargarReservas();
@@ -401,7 +386,7 @@ function App() {
     
     setNotificacion({
       tipo: 'info',
-      mensaje: `Generando orden de pago para el ticket #${reserva.id}...`
+      mensaje: `Generating payment intent for ticket #${reserva.id}...`
     });
 
     setTimeout(() => {
