@@ -12,9 +12,7 @@ import ModalReserva from './components/ModalReserva';
 import ModalFicha from './components/ModalFicha'; 
 import NotificacionPush from './components/NotificacionPush';
 import ModalHistorial from './components/ModalHistorial';
-
-// IMPORTACIÓN DE FIREBASE
-import { solicitarPermisoNotificaciones, messaging, onMessage } from './firebase';
+import ModalConfirmacion from './components/ModalConfirmacion';
 
 // IMPORTACIÓN DE MERCADO PAGO
 import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
@@ -70,6 +68,8 @@ function App() {
   // REF PARA LA MEMORIA DEL MOTOR DEL TIEMPO
   const memoriaNotificaciones = useRef({ reservaId: null, avisoInicio: false, aviso15: false, expirado: false });
 
+  const [confirmacion, setConfirmacion] = useState({ isOpen: false, titulo: '', mensaje: '', onConfirmar: null, tipo: 'peligro' });
+
   useEffect(() => {
     if (usuario) {
       cargarCocheras();
@@ -78,7 +78,6 @@ function App() {
   }, [usuario]);
 
   // 🚀 SARRIL: MOTOR DE SINCRONIZACIÓN MULTIDISPOSITIVO REAL-TIME
-  // Este hook analiza las reservas globales del servidor y determina tu estado actual.
   useEffect(() => {
     if (usuario && usuario.rol === 'USER' && reservas.length > 0) {
       const miReservaActiva = [...reservas]
@@ -172,28 +171,6 @@ function App() {
 
     return () => clearInterval(intervalo);
   }, [usuario, miCochera, reservas]);
-
-  // --- ESCUCHAR FIREBASE ---
-  useEffect(() => {
-    if (!messaging) return;
-    
-    const unsubscribe = onMessage(messaging, (payload) => {
-      console.log("🔥 ¡MENSAJE RECIBIDO DESDE FIREBASE!", payload);
-      const titulo = payload.notification?.title || "";
-      
-      if (titulo.toLowerCase().includes("multa") && !miCochera) {
-        console.warn("Filtro Activo: Se ignoró una notificación de multa porque no tienes reservas activas.");
-        return;
-      }
-
-      setNotificacion({
-        tipo: 'info',
-        mensaje: `🔔 ${titulo} - ${payload.notification?.body}`
-      });
-    });
-
-    return () => unsubscribe();
-  }, [miCochera]); 
 
   // 1. Cargar cocheras
   const cargarCocheras = () => {
@@ -297,8 +274,16 @@ function App() {
 
   const manejarClicCochera = (lugar) => {
     if (usuario.rol === 'USER' && lugar.codigo === miCochera) {
-      const confirmar = window.confirm(`¿Estás seguro de liberar tu lugar ${lugar.codigo} y ver tu comprobante de salida (incluyendo multas si aplican)?`);
-      if (confirmar) liberarCochera(lugar.codigo);
+      setConfirmacion({
+        isOpen: true,
+        titulo: '¿Liberar tu lugar?',
+        mensaje: `¿Estás seguro de liberar tu cajón ${lugar.codigo} y ver tu comprobante de salida (incluyendo multas si aplican)?`,
+        tipo: 'info',
+        onConfirmar: () => {
+          liberarCochera(lugar.codigo);
+          setConfirmacion({ ...confirmacion, isOpen: false });
+        }
+      });
       return; 
     }
 
@@ -454,52 +439,25 @@ function App() {
   // 8. Eliminar Cochera
   const eliminarCochera = (codigo) => {
     if (usuario.rol !== 'ADMIN') return;
-    const confirmar = window.confirm(`¿Estás seguro de eliminar definitivamente el cajón ${codigo}?`);
-    if (!confirmar) return;
-
-    fetch(`${BACKEND_URL}/api/cocheras/${codigo}`, { method: 'DELETE' })
-    .then(async res => {
-      if (!res.ok) throw new Error("No se pudo eliminar el lugar.");
-      cargarCocheras();
-      setNotificacion({
-        tipo: 'info',
-        mensaje: `Cochera ${codigo} eliminada correctamente.`
-      });
-    })
-    .catch(err => {
-      setNotificacion({
-        tipo: 'peligro',
-        mensaje: err.message
-      });
-    });
-  };
-
-  // 9. Probar Firebase
-  const probarFirebase = async () => {
-    const token = await solicitarPermisoNotificaciones();
-    if (token) {
-      if (usuario) {
-        fetch(`${BACKEND_URL}/api/usuarios/${usuario.username}/fcm-token`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: token })
-        })
-        .then(res => {
-          if (res.ok) {
-             alert("✅ ¡Campus Inteligente Activado! Tu dispositivo fue enlazado a tu cuenta.");
-          } else {
-             alert("⚠️ El navegador obtuvo el token, pero el servidor backend falló al almacenarlo.");
-          }
+    setConfirmacion({
+      isOpen: true,
+      titulo: 'Eliminar Cochera',
+      mensaje: `¿Estás seguro de eliminar definitivamente el cajón ${codigo}? Esta acción no se puede deshacer.`,
+      tipo: 'peligro',
+      onConfirmar: () => {
+        fetch(`${BACKEND_URL}/api/cocheras/${codigo}`, { method: 'DELETE' })
+        .then(async res => {
+          if (!res.ok) throw new Error("No se pudo eliminar el lugar.");
+          cargarCocheras();
+          setNotificacion({ tipo: 'info', mensaje: `Cochera ${codigo} eliminada correctamente.` });
+          setConfirmacion({ ...confirmacion, isOpen: false });
         })
         .catch(err => {
-          alert("❌ Error de comunicación: Asegúrate de que Spring Boot esté encendido.");
+          setNotificacion({ tipo: 'peligro', mensaje: err.message });
+          setConfirmacion({ ...confirmacion, isOpen: false });
         });
-      } else {
-        alert("⚠️ Canal obtenido, pero debes iniciar sesión para vincular el dispositivo a tu usuario.");
       }
-    } else {
-      alert("❌ No se pudo obtener el token. ¿Aceptaste los permisos?");
-    }
+    });
   };
 
   if (cargandoApp && !usuario) {
@@ -541,15 +499,6 @@ function App() {
         onLogout={handleLogout} 
         onAbrirHistorial={() => setMostrarHistorial(true)} 
       />
-      
-      <div className="max-w-6xl mx-auto px-6 pt-4 print:hidden">
-        <button 
-          onClick={probarFirebase}
-          className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black py-3 rounded-xl shadow-lg hover:shadow-xl transition-all active:scale-95"
-        >
-          🔔 ACTIVAR CAMPUS INTELIGENTE (Probar Notificaciones)
-        </button>
-      </div>
 
       <div className="max-w-6xl mx-auto p-6 print:p-0 animate-[fadeIn_0.5s_ease-out]">
         
@@ -582,7 +531,7 @@ function App() {
       {mostrarHistorial && (
         <ModalHistorial 
           usuario={usuario} 
-          onClose={() => setMostrarHistorial(false)}
+          onClose={() => setMostrarHistorial(false)} 
           onPagarDeuda={procesarPagoDeuda} 
         />
       )}
@@ -640,6 +589,16 @@ function App() {
           onLiberar={liberarCochera}
         />
       )}
+
+      <ModalConfirmacion 
+        isOpen={confirmacion.isOpen}
+        titulo={confirmacion.titulo}
+        mensaje={confirmacion.mensaje}
+        tipo={confirmacion.tipo}
+        onConfirmar={confirmacion.onConfirmar}
+        onCancelar={() => setConfirmacion({ ...confirmacion, isOpen: false })}
+      />
+      
     </div>
   );
 }

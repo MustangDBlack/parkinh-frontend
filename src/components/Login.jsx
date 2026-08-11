@@ -27,17 +27,18 @@ const CARRERAS_IES = [
   "Tecnicatura Superior en Higiene y Seguridad en el Laburo"
 ];
 
-// DEFINICIÓN DE LA URL BASE DESDE EL ENTORNO
 const BACKEND_URL = import.meta.env.VITE_APP_BACKEND_URL;
 
 export default function Login({ onLogin, errorLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [mostrarPassword, setMostrarPassword] = useState(false); // NUEVO: Estado del ojito
   const [isRegistering, setIsRegistering] = useState(false);
   const [mensajeExito, setMensajeExito] = useState('');
   const [errorRegistro, setErrorRegistro] = useState('');
 
   const [email, setEmail] = useState('');
+  const [nombreCompleto, setNombreCompleto] = useState(''); // MOVILIZADO PARA TODOS
   const [tipoPerfil, setTipoPerfil] = useState('ALUMNO');
   const [carrera, setCarrera] = useState(CARRERAS_IES[0]);
   const [turnoCursado, setTurnoCursado] = useState('TARDE');
@@ -45,19 +46,19 @@ export default function Login({ onLogin, errorLogin }) {
   const [comision, setComision] = useState('A');
   const [patenteHabitual, setPatenteHabitual] = useState('');
   const [whatsapp, setWhatsapp] = useState(''); 
-  const [nombreCompleto, setNombreCompleto] = useState('');
   const [dni, setDni] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
     
     if (isRegistering) {
+      if (!nombreCompleto) return setErrorRegistro("Debés ingresar tu nombre y apellido.");
       if (!email.includes('@')) return setErrorRegistro("Debés ingresar un correo electrónico válido.");
       if (!patenteHabitual) return setErrorRegistro("Debés ingresar la patente de tu vehículo.");
       if (!whatsapp) return setErrorRegistro("Debés ingresar un número de WhatsApp de contacto.");
       
       if (tipoPerfil === 'PARTICULAR') {
-        if (!nombreCompleto || !dni) return setErrorRegistro("Los usuarios particulares deben ingresar Nombre Completo y DNI.");
+        if (!dni) return setErrorRegistro("Los usuarios particulares deben ingresar su DNI.");
       }
 
       setErrorRegistro('');
@@ -67,6 +68,7 @@ export default function Login({ onLogin, errorLogin }) {
         username,
         password,
         email,
+        nombreCompleto, // AHORA SE ENVÍA SIEMPRE
         rol: 'USER',
         tipoPerfil,
         patenteHabitual: patenteHabitual.replace(/\s+/g, '').toUpperCase(), 
@@ -75,11 +77,9 @@ export default function Login({ onLogin, errorLogin }) {
         turnoCursado: tipoPerfil === 'ALUMNO' ? turnoCursado : null,
         curso: tipoPerfil === 'ALUMNO' ? curso : null,
         comision: tipoPerfil === 'ALUMNO' ? comision : null,
-        nombreCompleto: tipoPerfil === 'PARTICULAR' ? nombreCompleto : null,
         dni: tipoPerfil === 'PARTICULAR' ? dni : null
       };
 
-      // FETCH CORREGIDO CON LA VARIABLE DE ENTORNO
       fetch(`${BACKEND_URL}/api/usuarios/registro`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -105,10 +105,8 @@ export default function Login({ onLogin, errorLogin }) {
     <div className="min-h-screen w-full flex relative bg-cover bg-center bg-no-repeat font-sans antialiased overflow-y-auto overflow-x-hidden"
       style={{ backgroundImage: "url('/parquimetroimagen.png')" }}>
       
-      {/* Overlay con gradiente suave e institucional */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-950/90 via-blue-900/80 to-slate-900/85 backdrop-blur-[2px] z-0"></div>
       
-      {/* Grid sutil */}
       <div className="absolute inset-0 z-0 opacity-[0.03]">
         <div className="absolute inset-0" style={{ 
           backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.2) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.2) 1px, transparent 1px)',
@@ -116,7 +114,6 @@ export default function Login({ onLogin, errorLogin }) {
         }}></div>
       </div>
       
-      {/* Blobs luminosos de fondo */}
       <div className="absolute inset-0 z-0 overflow-hidden">
         <div className="absolute top-1/4 left-1/4 w-[300px] h-[300px] sm:w-[500px] sm:h-[500px] bg-blue-600 rounded-full filter blur-[120px] opacity-15 animate-[pulse_12s_infinite]"></div>
         <div className="absolute bottom-1/3 right-1/4 w-[250px] h-[250px] sm:w-[400px] sm:h-[400px] bg-sky-500 rounded-full filter blur-[120px] opacity-10 animate-[pulse_14s_infinite]" style={{ animationDelay: '-3s' }}></div>
@@ -126,33 +123,24 @@ export default function Login({ onLogin, errorLogin }) {
         
         {/* Lado izquierdo - Branding Institucional */}
         <div className="hidden lg:flex w-1/2 flex-col justify-center px-12 xl:px-16">
-          
-          {/* LOGO PARKINH CORREGIDO: PARKI en Blanco, NH en Azul con Shimmer */}
           <h1 className="text-5xl xl:text-6xl font-black tracking-tight leading-none drop-shadow-lg mb-2">
             <span className="text-white font-black">PARKI</span>
             <span className="shimmer-text-blue font-black ml-0.5">NH</span>
           </h1>
           <p className="text-lg text-blue-200/80 font-bold mb-8 tracking-wide">Estacionamiento Inteligente</p>
           
-          {/* Tarjeta con logo oficial IES NH incorporado */}
           <div className="text-white/90 space-y-4 bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.3)] max-w-lg relative overflow-hidden">
-            
-            {/* Marca de agua / destello sutil en el fondo de la tarjeta */}
             <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
               <img src="/logoiesnh.png" alt="Marca de agua IES" className="w-48 h-48 object-contain filter brightness-200" />
             </div>
 
             <div className="flex items-center gap-3.5 mb-2 relative z-10">
-              {/* Contenedor del Logo Institucional discreto */}
               <div className="w-12 h-12 bg-white rounded-2xl p-1.5 flex items-center justify-center shadow-md border border-white/30 shrink-0">
                 <img 
                   src="/logoiesnh.png" 
                   alt="IES NH" 
                   className="w-full h-full object-contain"
-                  onError={(e) => {
-                    // Fallback visual si el formato del nombre varía
-                    e.target.style.display = 'none';
-                  }}
+                  onError={(e) => { e.target.style.display = 'none'; }}
                 />
               </div>
               <div>
@@ -176,7 +164,6 @@ export default function Login({ onLogin, errorLogin }) {
         <div className="w-full lg:w-1/2 flex items-center justify-center p-3 sm:p-6 lg:p-12 min-h-screen">
           <div className="w-full max-w-md glass-premium p-4 sm:p-6 lg:p-8 rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.4)] border border-white/20 my-2 sm:my-4 relative">
             
-            {/* Logo Mobile */}
             <div className="lg:hidden text-center mb-4 flex flex-col items-center">
               <img src="/logoiesnh.png" alt="IES NH" className="w-14 h-14 object-contain mb-2 drop-shadow-md" />
               <h1 className="text-3xl font-black tracking-tight drop-shadow-md">
@@ -186,7 +173,6 @@ export default function Login({ onLogin, errorLogin }) {
               <p className="text-xs text-blue-700/80 font-bold tracking-wide">Estacionamiento Inteligente</p>
             </div>
 
-            {/* Cabecera */}
             <div className="text-center lg:text-left mb-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -214,38 +200,42 @@ export default function Login({ onLogin, errorLogin }) {
               </div>
             </div>
 
-            {/* Mensajes */}
             {errorLogin && !isRegistering && (
               <div className="bg-red-50/90 text-red-700 p-2.5 sm:p-3 rounded-xl text-xs sm:text-sm font-bold border border-red-200 flex items-center gap-2 shadow-sm mb-3">
-                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                 <span className="leading-tight">{errorLogin}</span>
               </div>
             )}
             
             {errorRegistro && isRegistering && (
               <div className="bg-red-50/90 text-red-700 p-2.5 sm:p-3 rounded-xl text-xs sm:text-sm font-bold border border-red-200 flex items-center gap-2 shadow-sm mb-3">
-                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                 <span className="leading-tight">{errorRegistro}</span>
               </div>
             )}
             
             {mensajeExito && !isRegistering && (
               <div className="bg-emerald-50/90 text-emerald-800 p-2.5 sm:p-3 rounded-xl text-xs sm:text-sm font-bold border border-emerald-200 flex items-center gap-2 shadow-sm mb-3">
-                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 <span className="leading-tight">{mensajeExito}</span>
               </div>
             )}
 
-            {/* Formulario */}
             <form onSubmit={handleSubmit} className="space-y-3">
-              
               <div className="space-y-2.5">
+                
+                {/* NOMBRE Y APELLIDO (AHORA PARA TODOS EN REGISTRO) */}
+                {isRegistering && (
+                  <div>
+                    <label className="block text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-wider mb-1 ml-1">Nombre y Apellido</label>
+                    <input 
+                      type="text" value={nombreCompleto} onChange={(e) => setNombreCompleto(e.target.value)} required={isRegistering}
+                      className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 bg-white/70 backdrop-blur-sm border border-slate-300 rounded-xl text-slate-900 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 focus:bg-white transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)]"
+                      placeholder="Ej: Juan Pérez"
+                    />
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-wider mb-1 ml-1">Usuario / Matrícula</label>
                   <input 
@@ -266,13 +256,30 @@ export default function Login({ onLogin, errorLogin }) {
                   </div>
                 )}
 
+                {/* CONTRASEÑA CON OJITO OCULTAR/VER */}
                 <div>
                   <label className="block text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-wider mb-1 ml-1">Contraseña</label>
-                  <input 
-                    type="password" value={password} onChange={(e) => setPassword(e.target.value)} required
-                    className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 bg-white/70 backdrop-blur-sm border border-slate-300 rounded-xl text-slate-900 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 focus:bg-white transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)]"
-                    placeholder="········"
-                  />
+                  <div className="relative">
+                    <input 
+                      type={mostrarPassword ? "text" : "password"} 
+                      value={password} 
+                      onChange={(e) => setPassword(e.target.value)} 
+                      required
+                      className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 pr-12 bg-white/70 backdrop-blur-sm border border-slate-300 rounded-xl text-slate-900 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 focus:bg-white transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)]"
+                      placeholder="········"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setMostrarPassword(!mostrarPassword)}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 sm:pr-4 text-slate-400 hover:text-blue-600 transition-colors focus:outline-none"
+                    >
+                      {mostrarPassword ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -336,15 +343,7 @@ export default function Login({ onLogin, errorLogin }) {
                   )}
 
                   {tipoPerfil === 'PARTICULAR' && (
-                    <div className="grid grid-cols-1 gap-2.5 bg-amber-50/50 p-3 sm:p-4 rounded-xl border border-amber-200">
-                      <div>
-                        <label className="block text-[10px] sm:text-xs font-bold text-amber-800 uppercase tracking-wider mb-1 ml-1">Nombre Completo</label>
-                        <input 
-                          type="text" value={nombreCompleto} onChange={(e) => setNombreCompleto(e.target.value)} required={tipoPerfil === 'PARTICULAR'}
-                          className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 bg-white border border-amber-200 rounded-xl font-bold text-sm focus:border-amber-400 focus:ring-2 focus:ring-amber-200/50 transition-all shadow-sm"
-                          placeholder="Ej: Juan Pérez"
-                        />
-                      </div>
+                    <div className="bg-amber-50/50 p-3 sm:p-4 rounded-xl border border-amber-200">
                       <div>
                         <label className="block text-[10px] sm:text-xs font-bold text-amber-800 uppercase tracking-wider mb-1 ml-1">DNI / Documento</label>
                         <input 
@@ -433,7 +432,6 @@ export default function Login({ onLogin, errorLogin }) {
           </div>
         </div>
       </div>
-
       <style dangerouslySetInnerHTML={{__html: `
         .glass-premium {
           background: rgba(255, 255, 255, 0.70);
@@ -441,7 +439,6 @@ export default function Login({ onLogin, errorLogin }) {
           -webkit-backdrop-filter: blur(20px);
           border: 1px solid rgba(255, 255, 255, 0.4);
         }
-        
         .shimmer-text-blue {
           background: linear-gradient(90deg, #60a5fa 0%, #bfdbfe 50%, #3b82f6 100%);
           background-size: 200% auto;
@@ -450,11 +447,7 @@ export default function Login({ onLogin, errorLogin }) {
           background-clip: text;
           animation: shine 3s linear infinite;
         }
-        
-        @keyframes shine {
-          to { background-position: 200% center; }
-        }
-        
+        @keyframes shine { to { background-position: 200% center; } }
         @keyframes pulse {
           0%, 100% { transform: scale(1); opacity: 0.10; }
           50% { transform: scale(1.05); opacity: 0.15; }

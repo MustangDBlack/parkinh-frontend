@@ -34,10 +34,6 @@ export default function Mapa({
 
   const intentarManejarClic = (lugar) => {
     if (isDragging) return;
-    if (usuario?.rol === 'USER' && miCochera && lugar.codigo !== miCochera) {
-      alert("Ya tienes una reserva activa en el lugar " + miCochera + ". Debes liberarlo antes de ocupar otro espacio.");
-      return;
-    }
     manejarClicCochera(lugar);
   };
 
@@ -126,7 +122,6 @@ export default function Mapa({
         {/* Pared superior - Límite del estacionamiento */}
         <div className="relative h-6 sm:h-8 bg-gradient-to-b from-slate-500 to-slate-400 flex items-center justify-center border-b-2 border-slate-600">
           <span className="text-[8px] sm:text-[10px] font-bold text-white/60 uppercase tracking-[0.3em]">Límite del predio</span>
-          {/* Detalles de pared */}
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-700/30"></div>
         </div>
 
@@ -180,15 +175,12 @@ export default function Mapa({
                     style={{ animationDelay: `${index * 0.03}s`, width: '100px', height: '140px' }}
                     onClick={() => intentarManejarClic(lugar)}
                   >
-                    {/* Brillo superior */}
                     <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-white/20 to-transparent opacity-50 pointer-events-none"></div>
                     
-                    {/* Líneas de demarcación */}
                     <div className="absolute inset-1.5 border-2 border-dashed border-white/15 rounded-lg pointer-events-none"></div>
                     <div className="absolute top-0 bottom-0 left-0 w-[2px] bg-white/10"></div>
                     <div className="absolute top-0 bottom-0 right-0 w-[2px] bg-white/10"></div>
 
-                    {/* Botón eliminar admin */}
                     {usuario?.rol === 'ADMIN' && !lugar.ocupado && (
                       <button onClick={(e) => { e.stopPropagation(); eliminarCochera(lugar.codigo); }}
                         className="absolute -top-2 -right-2 w-6 h-6 sm:w-7 sm:h-7 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:bg-red-600 z-20">
@@ -228,7 +220,6 @@ export default function Mapa({
                       <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-white/80 animate-pulse shadow-md"></div>
                     )}
 
-                    {/* Sombra del vehículo en el piso */}
                     <div className="absolute -bottom-0.5 left-3 right-3 h-1.5 bg-black/15 rounded-full blur-[2px]"></div>
                   </div>
                 );
