@@ -6,6 +6,11 @@ export default function ModuloAuditoria({ reservas }) {
   const [filtroComportamiento, setFiltroComportamiento] = useState('TODOS'); 
   const [mostrarTickets, setMostrarTickets] = useState(false);
   const [cargandoFicha, setCargandoFicha] = useState(false);
+  
+  // Estado para la paginación de tickets por vehículo (clave: patente, valor: número de página)
+  const [paginasTickets, setPaginasTickets] = useState({});
+
+  const TICKETS_POR_PAGINA = 5;
 
   const handleExpandirFicha = (patente) => {
     if (patenteExpandida === patente) {
@@ -15,8 +20,14 @@ export default function ModuloAuditoria({ reservas }) {
       setCargandoFicha(true);
       setPatenteExpandida(patente);
       setMostrarTickets(false);
+      // Reiniciar a la página 1 al abrir
+      setPaginasTickets(prev => ({ ...prev, [patente]: 1 }));
       setTimeout(() => setCargandoFicha(false), 300);
     }
+  };
+
+  const cambiarPagina = (patente, nuevaPagina) => {
+    setPaginasTickets(prev => ({ ...prev, [patente]: nuevaPagina }));
   };
 
   const reservasCompletadas = useMemo(() => {
@@ -37,10 +48,11 @@ export default function ModuloAuditoria({ reservas }) {
           totalGastado: 0, 
           deudaActiva: 0, 
           operaciones: 0, 
-          historialPagado: [],
-          infracciones: [],
+          todosLosTickets: [],
           datosInstitucionales: {
             username: reserva.usuario?.username || 'USUARIO_NO_VINCULADO',
+            nombre: reserva.usuario?.nombre || '',
+            apellido: reserva.usuario?.apellido || '',
             tipoPerfil: reserva.usuario?.tipoPerfil || 'PARTICULAR',
             carrera: reserva.usuario?.carrera || 'N/A',
             turnoCursado: reserva.usuario?.turnoCursado || 'N/A',
@@ -52,14 +64,17 @@ export default function ModuloAuditoria({ reservas }) {
       }
       
       agrupado[pat].operaciones += 1;
+      agrupado[pat].todosLosTickets.push(reserva);
       
       if (tieneDeuda) {
         agrupado[pat].deudaActiva += monto;
-        agrupado[pat].infracciones.push(reserva);
       } else {
         agrupado[pat].totalGastado += monto;
-        agrupado[pat].historialPagado.push(reserva);
       }
+    });
+
+    Object.values(agrupado).forEach(vehiculo => {
+      vehiculo.todosLosTickets.sort((a, b) => b.id - a.id);
     });
 
     return Object.values(agrupado).sort((a, b) => b.totalGastado - a.totalGastado);
@@ -75,6 +90,17 @@ export default function ModuloAuditoria({ reservas }) {
       return coincidePatente && coincideComportamiento;
     });
   }, [auditoriaVehiculos, busquedaPatente, filtroComportamiento]);
+
+  // Función para formatear el tiempo excedido en Horas y Minutos
+  const formatearTiempoExcedido = (ms) => {
+    const totalMinutos = Math.floor(ms / (1000 * 60));
+    const horas = Math.floor(totalMinutos / 60);
+    const minutos = totalMinutos % 60;
+
+    if (horas === 0) return `${minutos} minutos`;
+    if (minutos === 0) return `${horas} hora${horas > 1 ? 's' : ''}`;
+    return `${horas} hora${horas > 1 ? 's' : ''} y ${minutos} minutos`;
+  };
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden fade-in">
@@ -147,6 +173,17 @@ export default function ModuloAuditoria({ reservas }) {
         ) : (
           auditoriaFiltrada.map((vehiculo, index) => {
             const { datosInstitucionales } = vehiculo;
+            const nombreCompleto = datosInstitucionales.nombre && datosInstitucionales.apellido 
+              ? `${datosInstitucionales.nombre} ${datosInstitucionales.apellido}` 
+              : datosInstitucionales.username;
+
+            const paginaActual = paginasTickets[vehiculo.patente] || 1;
+            const totalPaginas = Math.ceil(vehiculo.todosLosTickets.length / TICKETS_POR_PAGINA) || 1;
+            const ticketsPaginados = vehiculo.todosLosTickets.slice(
+              (paginaActual - 1) * TICKETS_POR_PAGINA,
+              paginaActual * TICKETS_POR_PAGINA
+            );
+
             return (
               <div key={vehiculo.patente} className="p-3 space-y-3 animate-[fadeIn_0.3s_ease-out]" style={{ animationDelay: `${index * 0.05}s` }}>
                 
@@ -156,7 +193,8 @@ export default function ModuloAuditoria({ reservas }) {
                       {vehiculo.patente}
                     </div>
                     <div>
-                      <p className="font-bold text-gray-800 text-sm">{datosInstitucionales.username}</p>
+                      <p className="font-bold text-gray-800 text-sm">{nombreCompleto}</p>
+                      <p className="text-[11px] text-gray-400 font-medium">@{datosInstitucionales.username}</p>
                       <p className={`text-[10px] font-bold inline-block px-2 py-0.5 rounded-lg mt-0.5 uppercase ${
                         datosInstitucionales.tipoPerfil === 'ALUMNO' ? 'bg-blue-100 text-blue-700' :
                         datosInstitucionales.tipoPerfil === 'DOCENTE' ? 'bg-purple-100 text-purple-700' :
@@ -205,11 +243,11 @@ export default function ModuloAuditoria({ reservas }) {
                         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 space-y-3">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center font-black text-blue-700 text-sm flex-shrink-0">
-                              {datosInstitucionales.username.charAt(0).toUpperCase()}
+                              {nombreCompleto.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <p className="font-black text-gray-800">{datosInstitucionales.username}</p>
-                              <p className="text-[10px] text-gray-500">#{vehiculo.patente}</p>
+                              <p className="font-black text-gray-800">{nombreCompleto}</p>
+                              <p className="text-[10px] text-gray-500">Patente: #{vehiculo.patente}</p>
                             </div>
                           </div>
                           
@@ -241,7 +279,7 @@ export default function ModuloAuditoria({ reservas }) {
                           {vehiculo.deudaActiva > 0 ? (
                             <div className="bg-red-50 border border-red-200 p-3 rounded-xl text-center shadow-inner">
                               <p className="text-[10px] font-bold text-red-600 uppercase mb-0.5">Usuario Inhabilitado</p>
-                              <p className="font-black text-red-700 text-sm">Deuda: ${vehiculo.deudaActiva.toLocaleString('es-AR')}</p>
+                              <p className="font-black text-red-700 text-sm">Deuda Total: ${vehiculo.deudaActiva.toLocaleString('es-AR')}</p>
                             </div>
                           ) : (
                             <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center">
@@ -257,49 +295,108 @@ export default function ModuloAuditoria({ reservas }) {
                           <svg className={`w-4 h-4 transition-transform ${mostrarTickets ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
                           </svg>
-                          {mostrarTickets ? 'Ocultar Historial' : `Ver Historial (${vehiculo.operaciones})`}
+                          {mostrarTickets ? 'Ocultar Historial' : `Ver Historial Unificado (${vehiculo.operaciones})`}
                         </button>
 
+                        {/* Historial Paginado en Mobile (Cada 5 tickets) */}
                         {mostrarTickets && (
-                          <div className="space-y-4 max-h-[400px] overflow-y-auto pb-2 custom-scrollbar">
-                            {vehiculo.infracciones.length > 0 && (
-                              <div className="space-y-2">
-                                <h4 className="text-[11px] font-black text-red-600 uppercase tracking-widest bg-red-50 py-1 px-2 rounded">⚠️ Infracciones Pendientes</h4>
-                                {vehiculo.infracciones.map(ticket => (
-                                  <div key={ticket.id} className="bg-white border-2 border-red-300 p-3 rounded-xl text-xs shadow-sm relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
-                                    <div className="flex justify-between items-center mb-2 pl-2">
-                                      <span className="font-black text-gray-800">#{ticket.id}</span>
-                                      <span className="text-gray-500">{new Date(ticket.horaSalida).toLocaleDateString()}</span>
-                                    </div>
-                                    <div className="flex justify-between pl-2">
-                                      <span className="text-gray-500">Lugar: <b>{ticket.cochera?.codigo}</b></span>
-                                      <span className="font-black text-red-600">
-                                        ${ticket.montoTotal.toLocaleString('es-AR')}
-                                      </span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                          <div className="space-y-3 pb-2">
+                            <div className="flex justify-between items-center bg-slate-100 py-1.5 px-3 rounded-lg text-[11px] font-black text-slate-600">
+                              <span>📋 Historial (Pág. {paginaActual} de {totalPaginas})</span>
+                              <span>Total: {vehiculo.todosLosTickets.length}</span>
+                            </div>
 
-                            {vehiculo.historialPagado.length > 0 && (
-                              <div className="space-y-2">
-                                <h4 className="text-[11px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 py-1 px-2 rounded">✅ Historial Pagado</h4>
-                                {vehiculo.historialPagado.slice().reverse().map(ticket => (
-                                  <div key={ticket.id} className="bg-white border-2 border-dashed border-gray-300 p-3 rounded-xl text-xs opacity-80">
-                                    <div className="flex justify-between items-center mb-2">
-                                      <span className="font-black text-gray-600">#{ticket.id}</span>
-                                      <span className="text-gray-400">{new Date(ticket.horaSalida).toLocaleDateString()}</span>
+                            {ticketsPaginados.map(ticket => {
+                              const esDeuda = ticket.estadoPago === 'PENDIENTE';
+                              const montoTotal = ticket.montoTotal || 0;
+                              const tarifaBase = montoTotal > 500 ? 500 : montoTotal;
+                              const multaExceso = montoTotal > 500 ? montoTotal - 500 : 0;
+
+                              let tiempoExcedidoTexto = '';
+                              if (ticket.horaSalida && ticket.horaFinEsperada) {
+                                const diffMs = new Date(ticket.horaSalida) - new Date(ticket.horaFinEsperada);
+                                if (diffMs > 0) {
+                                  tiempoExcedidoTexto = formatearTiempoExcedido(diffMs);
+                                }
+                              }
+
+                              const horaEntradaFormateada = ticket.horaEntrada || ticket.createdAt 
+                                ? new Date(ticket.horaEntrada || ticket.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) 
+                                : 'N/A';
+
+                              const horaSalidaFormateada = ticket.horaSalida 
+                                ? new Date(ticket.horaSalida).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) 
+                                : 'Activo';
+
+                              return (
+                                <div 
+                                  key={ticket.id} 
+                                  className={`bg-white border-2 p-3.5 rounded-xl text-xs shadow-sm space-y-2 relative overflow-hidden ${
+                                    esDeuda ? 'border-red-400 bg-red-50/20' : 'border-gray-200'
+                                  }`}
+                                >
+                                  <div className={`absolute top-0 left-0 w-1.5 h-full ${esDeuda ? 'bg-red-600' : 'bg-emerald-500'}`}></div>
+                                  
+                                  <div className="flex justify-between items-center pl-2">
+                                    <span className="font-black text-gray-900">Ticket #{ticket.id}</span>
+                                    <span className={`font-black px-2 py-0.5 rounded text-[10px] ${
+                                      esDeuda ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
+                                    }`}>
+                                      {esDeuda ? 'PENDIENTE' : 'PAGADO'}
+                                    </span>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-1 pl-2 text-[11px] text-slate-600 pt-1 border-t border-gray-100">
+                                    <div>Cajón: <b className="text-slate-800">{ticket.cochera?.codigo || 'N/A'}</b></div>
+                                    <div>Pase: <b className="text-slate-800">{ticket.tipoPase || 'ESTANDAR'}</b></div>
+                                    <div className="col-span-2 bg-slate-50 p-1.5 rounded border border-slate-200 mt-1 flex justify-between">
+                                      <span>📥 Ingreso: <b>{horaEntradaFormateada}</b></span>
+                                      <span>📤 Egreso: <b>{horaSalidaFormateada}</b></span>
                                     </div>
+                                  </div>
+
+                                  <div className={`p-2.5 rounded-lg space-y-1 mt-2 pl-2 border text-[11px] ${
+                                    esDeuda ? 'bg-red-50 border-red-200 text-red-900' : 'bg-gray-50 border-gray-200 text-slate-700'
+                                  }`}>
                                     <div className="flex justify-between">
-                                      <span className="text-gray-500">Lugar: <b>{ticket.cochera?.codigo}</b></span>
-                                      <span className="font-black text-gray-600">
-                                        ${ticket.montoTotal.toLocaleString('es-AR')}
+                                      <span>Tarifa Base / Reserva:</span>
+                                      <span className="font-bold">${tarifaBase.toLocaleString('es-AR')}</span>
+                                    </div>
+                                    {multaExceso > 0 && (
+                                      <div className="flex justify-between text-red-600 font-semibold pt-1 border-t border-red-200">
+                                        <span>Multa ({tiempoExcedidoTexto} de exceso):</span>
+                                        <span>+${multaExceso.toLocaleString('es-AR')}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between items-center pt-1.5 border-t border-slate-200 font-black text-xs">
+                                      <span>Total del Ticket:</span>
+                                      <span className={esDeuda ? 'text-red-700 text-sm' : 'text-emerald-700'}>
+                                        ${montoTotal.toLocaleString('es-AR')}
                                       </span>
                                     </div>
                                   </div>
-                                ))}
+                                </div>
+                              );
+                            })}
+
+                            {/* CONTROLES DE PAGINACIÓN MOBILE */}
+                            {totalPaginas > 1 && (
+                              <div className="flex items-center justify-between pt-2">
+                                <button
+                                  disabled={paginaActual === 1}
+                                  onClick={() => cambiarPagina(vehiculo.patente, paginaActual - 1)}
+                                  className="px-3 py-1.5 bg-gray-200 text-gray-700 font-bold rounded-lg text-xs disabled:opacity-40"
+                                >
+                                  Anterior
+                                </button>
+                                <span className="text-xs font-bold text-gray-500">Pág {paginaActual} de {totalPaginas}</span>
+                                <button
+                                  disabled={paginaActual === totalPaginas}
+                                  onClick={() => cambiarPagina(vehiculo.patente, paginaActual + 1)}
+                                  className="px-3 py-1.5 bg-blue-600 text-white font-bold rounded-lg text-xs disabled:opacity-40"
+                                >
+                                  Siguiente
+                                </button>
                               </div>
                             )}
                           </div>
@@ -321,7 +418,7 @@ export default function ModuloAuditoria({ reservas }) {
             <thead>
               <tr className="bg-gradient-to-r from-gray-50 via-slate-50 to-gray-50 text-gray-500 text-xs uppercase tracking-wider border-y-2 border-gray-100">
                 <th className="p-3 lg:p-4 font-bold">Dominio / Patente</th>
-                <th className="p-3 lg:p-4 font-bold">Usuario / Matrícula</th>
+                <th className="p-3 lg:p-4 font-bold">Usuario / Nombre y Apellido</th>
                 <th className="p-3 lg:p-4 font-bold text-center">Ingresos</th>
                 <th className="p-3 lg:p-4 font-bold text-center">Estado Operativo</th>
                 <th className="p-3 lg:p-4 font-bold text-center">Acción</th>
@@ -345,6 +442,17 @@ export default function ModuloAuditoria({ reservas }) {
               ) : (
                 auditoriaFiltrada.map((vehiculo) => {
                   const { datosInstitucionales } = vehiculo;
+                  const nombreCompleto = datosInstitucionales.nombre && datosInstitucionales.apellido 
+                    ? `${datosInstitucionales.nombre} ${datosInstitucionales.apellido}` 
+                    : datosInstitucionales.username;
+
+                  const paginaActual = paginasTickets[vehiculo.patente] || 1;
+                  const totalPaginas = Math.ceil(vehiculo.todosLosTickets.length / TICKETS_POR_PAGINA) || 1;
+                  const ticketsPaginados = vehiculo.todosLosTickets.slice(
+                    (paginaActual - 1) * TICKETS_POR_PAGINA,
+                    paginaActual * TICKETS_POR_PAGINA
+                  );
+
                   return (
                     <Fragment key={vehiculo.patente}>
                       <tr className="hover:bg-blue-50/20 transition-all duration-200 group">
@@ -356,10 +464,11 @@ export default function ModuloAuditoria({ reservas }) {
                         <td className="p-3 lg:p-4">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center font-black text-blue-700 text-xs flex-shrink-0">
-                              {datosInstitucionales.username.charAt(0).toUpperCase()}
+                              {nombreCompleto.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <p className="font-bold text-gray-800 text-sm">{datosInstitucionales.username}</p>
+                              <p className="font-bold text-gray-800 text-sm">{nombreCompleto}</p>
+                              <p className="text-[11px] text-gray-400 font-medium">@{datosInstitucionales.username}</p>
                               <p className={`text-[10px] font-bold inline-block px-1.5 py-0.5 rounded-md mt-0.5 uppercase ${
                                 datosInstitucionales.tipoPerfil === 'ALUMNO' ? 'bg-blue-100 text-blue-700' :
                                 datosInstitucionales.tipoPerfil === 'DOCENTE' ? 'bg-purple-100 text-purple-700' :
@@ -437,10 +546,10 @@ export default function ModuloAuditoria({ reservas }) {
                                   <div className="p-4 sm:p-6 flex-1">
                                     <div className="flex justify-between items-start border-b-2 border-gray-200 pb-3 mb-3">
                                       <div>
-                                        <h3 className="text-xl sm:text-2xl font-black text-gray-900">{datosInstitucionales.username}</h3>
+                                        <h3 className="text-xl sm:text-2xl font-black text-gray-900">{nombreCompleto}</h3>
                                         <div className="flex items-center gap-2 mt-1">
-                                          <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase">ID:</span>
-                                          <span className="font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded-lg text-xs">#{vehiculo.patente}</span>
+                                          <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase">Usuario:</span>
+                                          <span className="font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded-lg text-xs">@{datosInstitucionales.username}</span>
                                         </div>
                                       </div>
                                       <div className="text-right hidden sm:block">
@@ -507,68 +616,115 @@ export default function ModuloAuditoria({ reservas }) {
                                     <svg className={`w-4 h-4 transition-transform ${mostrarTickets ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
                                     </svg>
-                                    {mostrarTickets ? 'Ocultar Desglose' : `Ver Desglose (${vehiculo.operaciones})`}
+                                    {mostrarTickets ? 'Ocultar Historial' : `Ver Historial Unificado (${vehiculo.operaciones})`}
                                   </button>
                                 </div>
 
-                                {/* Historial Desplegado Desktop */}
+                                {/* Historial Paginado en Desktop (Cada 5 tickets) */}
                                 {mostrarTickets && (
-                                  <div className="bg-gray-50 p-4 sm:p-5 rounded-2xl border border-gray-200 animate-[expandDown_0.4s_ease-out] origin-top grid grid-cols-1 md:grid-cols-2 gap-6">
+                                  <div className="bg-gray-50 p-4 sm:p-5 rounded-2xl border border-gray-200 animate-[expandDown_0.4s_ease-out] origin-top space-y-3">
+                                    <div className="flex justify-between items-center bg-slate-100 py-2 px-3 rounded-lg border border-slate-200 text-xs font-black text-slate-600">
+                                      <span>📋 Historial Completo de Operaciones (Pág. {paginaActual} de {totalPaginas})</span>
+                                      <span>Total Registros: {vehiculo.todosLosTickets.length}</span>
+                                    </div>
                                     
                                     <div className="space-y-3">
-                                      <h4 className="text-[11px] font-black text-red-600 uppercase tracking-widest bg-red-50 py-1.5 px-3 rounded-lg border border-red-100 flex items-center gap-2">
-                                        ⚠️ Infracciones Pendientes
-                                        <span className="bg-red-600 text-white rounded-full px-2 py-0.5 text-[9px]">{vehiculo.infracciones.length}</span>
-                                      </h4>
-                                      <div className="max-h-[300px] overflow-y-auto custom-scrollbar pr-2 space-y-2.5">
-                                        {vehiculo.infracciones.length === 0 ? (
-                                          <p className="text-xs font-bold text-gray-400 italic pl-2">No registra deudas pendientes.</p>
-                                        ) : (
-                                          vehiculo.infracciones.map(ticket => (
-                                            <div key={ticket.id} className="bg-white border-l-4 border-y border-r border-red-500 border-y-red-100 border-r-red-100 p-3 rounded-lg shadow-sm hover:shadow-md transition-all">
-                                              <div className="flex justify-between items-center mb-1">
-                                                <span className="font-black text-gray-800 text-xs">#{ticket.id}</span>
-                                                <span className="text-gray-500 text-[10px] font-bold">{new Date(ticket.horaSalida).toLocaleDateString()}</span>
+                                      {ticketsPaginados.map(ticket => {
+                                        const esDeuda = ticket.estadoPago === 'PENDIENTE';
+                                        const montoTotal = ticket.montoTotal || 0;
+                                        const tarifaBase = montoTotal > 500 ? 500 : montoTotal;
+                                        const multaExceso = montoTotal > 500 ? montoTotal - 500 : 0;
+
+                                        let tiempoExcedidoTexto = '';
+                                        if (ticket.horaSalida && ticket.horaFinEsperada) {
+                                          const diffMs = new Date(ticket.horaSalida) - new Date(ticket.horaFinEsperada);
+                                          if (diffMs > 0) {
+                                            tiempoExcedidoTexto = formatearTiempoExcedido(diffMs);
+                                          }
+                                        }
+
+                                        const horaEntradaFormateada = ticket.horaEntrada || ticket.createdAt 
+                                          ? new Date(ticket.horaEntrada || ticket.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) 
+                                          : 'N/A';
+
+                                        const horaSalidaFormateada = ticket.horaSalida 
+                                          ? new Date(ticket.horaSalida).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) 
+                                          : 'Activo';
+
+                                        return (
+                                          <div 
+                                            key={ticket.id} 
+                                            className={`bg-white border-2 p-4 rounded-xl shadow-sm space-y-2 relative overflow-hidden transition-all ${
+                                              esDeuda ? 'border-red-400 bg-red-50/10' : 'border-gray-200'
+                                            }`}
+                                          >
+                                            <div className={`absolute top-0 left-0 w-1.5 h-full ${esDeuda ? 'bg-red-600' : 'bg-emerald-500'}`}></div>
+
+                                            <div className="flex justify-between items-center pl-2">
+                                              <span className="font-black text-gray-900 text-xs">Ticket #{ticket.id}</span>
+                                              <span className={`font-black px-2.5 py-0.5 rounded text-[10px] ${
+                                                esDeuda ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
+                                              }`}>
+                                                {esDeuda ? 'PENDIENTE (DEUDA)' : 'PAGADO'}
+                                              </span>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 gap-2 pl-2 text-xs text-slate-600 pt-1 border-t border-gray-100">
+                                              <div>Cajón: <b className="text-slate-800">{ticket.cochera?.codigo || 'N/A'}</b></div>
+                                              <div>Pase: <b className="text-slate-800">{ticket.tipoPase || 'ESTANDAR'}</b></div>
+                                              <div>Estado: <b className="text-slate-800">{ticket.horaSalida ? 'Finalizado' : 'En curso'}</b></div>
+                                            </div>
+
+                                            <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs flex justify-between items-center text-slate-700 font-medium ml-2">
+                                              <span>📥 Ingreso: <b>{horaEntradaFormateada}</b></span>
+                                              <span>📤 Egreso: <b>{horaSalidaFormateada}</b></span>
+                                            </div>
+
+                                            <div className={`p-3 rounded-xl space-y-1.5 mt-2 border text-xs ${
+                                              esDeuda ? 'bg-red-50/70 border-red-200 text-red-900' : 'bg-gray-50 border-gray-200 text-slate-700'
+                                            }`}>
+                                              <div className="flex justify-between">
+                                                <span>Tarifa Base / Reserva:</span>
+                                                <span className="font-bold">${tarifaBase.toLocaleString('es-AR')}</span>
                                               </div>
-                                              <div className="flex justify-between items-center">
-                                                <span className="text-gray-500 text-[11px]">Cajón: <b>{ticket.cochera?.codigo}</b></span>
-                                                <span className="font-black text-red-600 text-sm">
-                                                  ${ticket.montoTotal.toLocaleString('es-AR')}
+                                              {multaExceso > 0 && (
+                                                <div className="flex justify-between text-red-600 font-semibold pt-1 border-t border-red-200">
+                                                  <span>Multa ({tiempoExcedidoTexto} de exceso):</span>
+                                                  <span>+${multaExceso.toLocaleString('es-AR')}</span>
+                                                </div>
+                                              )}
+                                              <div className="flex justify-between items-center pt-1.5 border-t border-slate-200 font-black text-sm">
+                                                <span>Total del Ticket:</span>
+                                                <span className={esDeuda ? 'text-red-700 text-base' : 'text-emerald-700'}>
+                                                  ${montoTotal.toLocaleString('es-AR')}
                                                 </span>
                                               </div>
                                             </div>
-                                          ))
-                                        )}
-                                      </div>
+                                          </div>
+                                        );
+                                      })}
                                     </div>
 
-                                    <div className="space-y-3">
-                                      <h4 className="text-[11px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 py-1.5 px-3 rounded-lg border border-emerald-100 flex items-center gap-2">
-                                        ✅ Historial Pagado
-                                        <span className="bg-emerald-600 text-white rounded-full px-2 py-0.5 text-[9px]">{vehiculo.historialPagado.length}</span>
-                                      </h4>
-                                      <div className="max-h-[300px] overflow-y-auto custom-scrollbar pr-2 space-y-2.5">
-                                        {vehiculo.historialPagado.length === 0 ? (
-                                          <p className="text-xs font-bold text-gray-400 italic pl-2">No registra operaciones completadas.</p>
-                                        ) : (
-                                          vehiculo.historialPagado.slice().reverse().map(ticket => (
-                                            <div key={ticket.id} className="bg-white border-2 border-dashed border-gray-200 p-3 rounded-lg opacity-80 hover:opacity-100 transition-all">
-                                              <div className="flex justify-between items-center mb-1">
-                                                <span className="font-black text-gray-500 text-xs">#{ticket.id}</span>
-                                                <span className="text-gray-400 text-[10px] font-bold">{new Date(ticket.horaSalida).toLocaleDateString()}</span>
-                                              </div>
-                                              <div className="flex justify-between items-center">
-                                                <span className="text-gray-500 text-[11px]">Cajón: <b>{ticket.cochera?.codigo}</b></span>
-                                                <span className="font-black text-gray-600 text-sm">
-                                                  ${ticket.montoTotal.toLocaleString('es-AR')}
-                                                </span>
-                                              </div>
-                                            </div>
-                                          ))
-                                        )}
+                                    {/* CONTROLES DE PAGINACIÓN DESKTOP */}
+                                    {totalPaginas > 1 && (
+                                      <div className="flex items-center justify-between pt-3 border-t border-slate-200">
+                                        <button
+                                          disabled={paginaActual === 1}
+                                          onClick={() => cambiarPagina(vehiculo.patente, paginaActual - 1)}
+                                          className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-xl text-xs disabled:opacity-40 transition-all cursor-pointer"
+                                        >
+                                          ← Anterior
+                                        </button>
+                                        <span className="text-xs font-black text-slate-600">Página {paginaActual} de {totalPaginas}</span>
+                                        <button
+                                          disabled={paginaActual === totalPaginas}
+                                          onClick={() => cambiarPagina(vehiculo.patente, paginaActual + 1)}
+                                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs disabled:opacity-40 transition-all cursor-pointer"
+                                        >
+                                          Siguiente →
+                                        </button>
                                       </div>
-                                    </div>
-
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -595,20 +751,6 @@ export default function ModuloAuditoria({ reservas }) {
           0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
           70% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
           100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
-        }
-        
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f1f5f9;
-          border-radius: 8px;
-        }
-        
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border-radius: 8px;
         }
       `}</style>
     </div>
