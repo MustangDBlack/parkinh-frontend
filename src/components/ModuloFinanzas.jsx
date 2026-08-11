@@ -81,74 +81,85 @@ export default function ModuloFinanzas({ reservas }) {
 
       {/* BARRA DE FILTROS */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-5">
-        <div className="flex flex-col gap-3">
-          {/* Filtros de tiempo - Scroll horizontal en mobile */}
-          <div className="flex bg-gray-100 p-1 sm:p-1.5 rounded-xl overflow-x-auto -mx-1 px-1">
-            {[
-              { key: 'HOY', label: 'Hoy', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
-              { key: 'SEMANA', label: 'Semana', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
-              { key: 'MES', label: 'Mes', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-              { key: 'TODO', label: 'Histórico', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
-              { key: 'RANGO', label: 'Fechas', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' }
-            ].map(filtro => (
-              <button 
-                key={filtro.key} 
-                onClick={() => setFiltroTiempo(filtro.key)} 
-                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-[10px] sm:text-xs font-black transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
-                  filtroTiempo === filtro.key 
-                    ? 'bg-white text-blue-700 shadow-[0_2px_8px_rgba(37,99,235,0.12)]' 
-                    : 'text-gray-500 hover:bg-white/50 hover:text-gray-700'
-                }`}
-              >
-                <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={filtro.icon} />
-                </svg>
-                <span className="hidden xs:inline">{filtro.label}</span>
-              </button>
-            ))}
+        <div className="flex flex-col gap-4">
+          
+          {/* Etiquetas y Filtros de tiempo */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-black tracking-widest text-gray-400 uppercase ml-1">Filtrar por Fecha</label>
+            <div className="flex bg-gray-100 p-1 sm:p-1.5 rounded-xl overflow-x-auto -mx-1 px-1 scrollbar-thin pb-1">
+              {[
+                { key: 'HOY', label: 'Hoy', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+                { key: 'SEMANA', label: 'Semana', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
+                { key: 'MES', label: 'Mes', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
+                { key: 'TODO', label: 'Histórico', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
+                { key: 'RANGO', label: 'Personalizado', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' }
+              ].map(filtro => (
+                <button 
+                  key={filtro.key} 
+                  onClick={() => setFiltroTiempo(filtro.key)} 
+                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs font-black transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
+                    filtroTiempo === filtro.key 
+                      ? 'bg-white text-blue-700 shadow-[0_2px_8px_rgba(37,99,235,0.12)] border border-blue-100' 
+                      : 'text-gray-500 hover:bg-white/50 hover:text-gray-700 border border-transparent'
+                  }`}
+                >
+                  <svg className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 ${filtroTiempo === filtro.key ? 'text-blue-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={filtro.icon} />
+                  </svg>
+                  {/* EL TEXTO AHORA SIEMPRE ES VISIBLE */}
+                  <span>{filtro.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Rango de fechas y método de pago */}
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-end">
             {filtroTiempo === 'RANGO' && (
-              <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200 animate-[slideRight_0.3s_ease-out] w-full sm:w-auto">
-                <input 
-                  type="date" 
-                  value={fechaDesde} 
-                  onChange={(e) => setFechaDesde(e.target.value)} 
-                  className="text-[10px] sm:text-xs font-bold text-gray-700 px-2 sm:px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white border border-gray-200 flex-1 sm:flex-none" 
-                />
-                <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
-                <input 
-                  type="date" 
-                  value={fechaHasta} 
-                  onChange={(e) => setFechaHasta(e.target.value)} 
-                  className="text-[10px] sm:text-xs font-bold text-gray-700 px-2 sm:px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white border border-gray-200 flex-1 sm:flex-none" 
-                />
+              <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+                <label className="text-[10px] font-black tracking-widest text-gray-400 uppercase ml-1">Seleccionar Rango</label>
+                <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200 animate-[slideRight_0.3s_ease-out] w-full">
+                  <input 
+                    type="date" 
+                    value={fechaDesde} 
+                    onChange={(e) => setFechaDesde(e.target.value)} 
+                    className="text-[10px] sm:text-xs font-bold text-gray-700 px-2 sm:px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white border border-gray-200 flex-1 sm:flex-none uppercase" 
+                  />
+                  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                  <input 
+                    type="date" 
+                    value={fechaHasta} 
+                    onChange={(e) => setFechaHasta(e.target.value)} 
+                    className="text-[10px] sm:text-xs font-bold text-gray-700 px-2 sm:px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white border border-gray-200 flex-1 sm:flex-none uppercase" 
+                  />
+                </div>
               </div>
             )}
             
-            <div className="relative w-full sm:w-48">
-              <select 
-                value={filtroMetodo} 
-                onChange={(e) => setFiltroMetodo(e.target.value)} 
-                className="w-full bg-white border-2 border-gray-200 rounded-xl pl-9 sm:pl-10 pr-10 py-2.5 text-xs sm:text-sm font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 transition-all appearance-none cursor-pointer"
-              >
-                <option value="TODOS">Todos los Pagos</option>
-                <option value="EFECTIVO">Solo Efectivo</option>
-                <option value="TRANSFERENCIA">Solo Transferencias</option>
-              </select>
-              <div className="absolute inset-y-0 left-0 pl-2.5 sm:pl-3 flex items-center pointer-events-none">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                </svg>
-              </div>
-              <div className="absolute inset-y-0 right-0 pr-2.5 sm:pr-3 flex items-center pointer-events-none">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                </svg>
+            <div className="flex flex-col gap-1.5 w-full sm:w-48 ml-auto">
+              <label className="text-[10px] font-black tracking-widest text-gray-400 uppercase ml-1">Método de Pago</label>
+              <div className="relative w-full">
+                <select 
+                  value={filtroMetodo} 
+                  onChange={(e) => setFiltroMetodo(e.target.value)} 
+                  className="w-full bg-white border-2 border-gray-200 rounded-xl pl-9 sm:pl-10 pr-10 py-2.5 text-xs sm:text-sm font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 transition-all appearance-none cursor-pointer"
+                >
+                  <option value="TODOS">Todos los Pagos</option>
+                  <option value="EFECTIVO">Solo Efectivo</option>
+                  <option value="TRANSFERENCIA">Solo Transferencias</option>
+                </select>
+                <div className="absolute inset-y-0 left-0 pl-2.5 sm:pl-3 flex items-center pointer-events-none">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
+                </div>
+                <div className="absolute inset-y-0 right-0 pr-2.5 sm:pr-3 flex items-center pointer-events-none">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
               </div>
             </div>
           </div>
@@ -346,6 +357,11 @@ export default function ModuloFinanzas({ reservas }) {
         .pulse-debt {
           animation: pulseRed 2s infinite;
         }
+        
+        .scrollbar-thin::-webkit-scrollbar { height: 4px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 8px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
         
         @keyframes pulseRed {
           0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }

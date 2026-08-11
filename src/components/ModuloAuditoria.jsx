@@ -29,14 +29,16 @@ export default function ModuloAuditoria({ reservas }) {
       if (!reserva.patente) return;
       const pat = reserva.patente.toUpperCase();
       const monto = reserva.montoTotal || 0;
+      const tieneDeuda = reserva.estadoPago === 'PENDIENTE';
       
       if (!agrupado[pat]) {
         agrupado[pat] = { 
           patente: pat, 
           totalGastado: 0, 
-          totalMultas: 0, 
+          deudaActiva: 0, 
           operaciones: 0, 
-          historial: [],
+          historialPagado: [],
+          infracciones: [],
           datosInstitucionales: {
             username: reserva.usuario?.username || 'USUARIO_NO_VINCULADO',
             tipoPerfil: reserva.usuario?.tipoPerfil || 'PARTICULAR',
@@ -49,14 +51,15 @@ export default function ModuloAuditoria({ reservas }) {
         };
       }
       
-      agrupado[pat].totalGastado += monto;
       agrupado[pat].operaciones += 1;
       
-      if (reserva.horaFinEsperada) {
-        const difMinutos = (new Date(reserva.horaSalida) - new Date(reserva.horaFinEsperada)) / (1000 * 60);
-        if (difMinutos > 15 && monto > 500) agrupado[pat].totalMultas += (monto - 500);
+      if (tieneDeuda) {
+        agrupado[pat].deudaActiva += monto;
+        agrupado[pat].infracciones.push(reserva);
+      } else {
+        agrupado[pat].totalGastado += monto;
+        agrupado[pat].historialPagado.push(reserva);
       }
-      agrupado[pat].historial.push(reserva);
     });
 
     return Object.values(agrupado).sort((a, b) => b.totalGastado - a.totalGastado);
@@ -67,8 +70,8 @@ export default function ModuloAuditoria({ reservas }) {
       const coincidePatente = vehiculo.patente.includes(busquedaPatente.trim().toUpperCase());
       const coincideComportamiento = 
         filtroComportamiento === 'TODOS' ? true :
-        filtroComportamiento === 'INFRACTOR' ? vehiculo.totalMultas > 0 :
-        vehiculo.totalMultas === 0;
+        filtroComportamiento === 'INFRACTOR' ? vehiculo.deudaActiva > 0 :
+        vehiculo.deudaActiva === 0;
       return coincidePatente && coincideComportamiento;
     });
   }, [auditoriaVehiculos, busquedaPatente, filtroComportamiento]);
@@ -106,7 +109,7 @@ export default function ModuloAuditoria({ reservas }) {
                 placeholder="Buscar Patente..." 
                 value={busquedaPatente} 
                 onChange={(e) => setBusquedaPatente(e.target.value)} 
-                className="pl-9 sm:pl-10 pr-4 py-2.5 text-xs sm:text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 w-full bg-white transition-all duration-300"
+                className="pl-9 sm:pl-10 pr-4 py-2.5 text-xs sm:text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 w-full bg-white transition-all duration-300 uppercase"
               />
             </div>
             <div className="relative w-full sm:w-44">
@@ -116,8 +119,8 @@ export default function ModuloAuditoria({ reservas }) {
                 className="w-full px-3 sm:px-4 py-2.5 text-xs sm:text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-700 font-medium bg-white transition-all duration-300 appearance-none pr-8 sm:pr-10 cursor-pointer"
               >
                 <option value="TODOS">Todos los Estados</option>
-                <option value="INFRACTOR">Solo Infractores</option>
-                <option value="EJEMPLAR">Solo Ejemplares</option>
+                <option value="INFRACTOR">Solo con Deuda</option>
+                <option value="EJEMPLAR">Solo Al Día</option>
               </select>
               <div className="absolute inset-y-0 right-0 pr-2 sm:pr-3 flex items-center pointer-events-none">
                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,8 +132,6 @@ export default function ModuloAuditoria({ reservas }) {
         </div>
       </div>
 
-      {/* TABLA - Versión mobile con tarjetas, desktop con tabla */}
-      
       {/* Vista Mobile: Tarjetas */}
       <div className="block sm:hidden divide-y divide-gray-100">
         {auditoriaFiltrada.length === 0 ? (
@@ -149,7 +150,6 @@ export default function ModuloAuditoria({ reservas }) {
             return (
               <div key={vehiculo.patente} className="p-3 space-y-3 animate-[fadeIn_0.3s_ease-out]" style={{ animationDelay: `${index * 0.05}s` }}>
                 
-                {/* Fila principal */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="bg-gradient-to-b from-white to-gray-50 text-gray-900 px-3 py-1.5 rounded-lg font-mono text-sm font-black tracking-wider border-2 border-gray-800 shadow-sm">
@@ -176,26 +176,23 @@ export default function ModuloAuditoria({ reservas }) {
                   </button>
                 </div>
                 
-                {/* Info secundaria */}
                 <div className="flex items-center gap-3 text-xs">
                   <span className="font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-lg">
                     {vehiculo.operaciones} ingresos
                   </span>
-                  {vehiculo.totalMultas > 0 ? (
-                    <span className="inline-flex items-center gap-1 bg-red-50 text-red-700 px-2 py-0.5 rounded-lg font-bold border border-red-200 text-[10px]">
-                      Deuda: ${vehiculo.totalMultas.toLocaleString('es-AR')}
+                  {vehiculo.deudaActiva > 0 ? (
+                    <span className="inline-flex items-center gap-1 bg-red-50 text-red-700 px-2 py-0.5 rounded-lg font-black border border-red-200 text-[10px]">
+                      🔴 Deuda: ${vehiculo.deudaActiva.toLocaleString('es-AR')}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-lg font-bold border border-emerald-200 text-[10px]">
-                      Al Día
+                    <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-lg font-black border border-emerald-200 text-[10px]">
+                      🟢 Al Día
                     </span>
                   )}
                 </div>
 
-                {/* Acordeón expandido en mobile */}
                 {patenteExpandida === vehiculo.patente && (
                   <div className="pt-2 border-t border-gray-100 space-y-3 animate-[expandDown_0.3s_ease-out] origin-top">
-                    
                     {cargandoFicha ? (
                       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
                         <div className="space-y-3">
@@ -205,7 +202,6 @@ export default function ModuloAuditoria({ reservas }) {
                       </div>
                     ) : (
                       <>
-                        {/* Datos del usuario */}
                         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 space-y-3">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center font-black text-blue-700 text-sm flex-shrink-0">
@@ -242,18 +238,18 @@ export default function ModuloAuditoria({ reservas }) {
                             <p className="font-bold text-green-700 text-xs">{datosInstitucionales.whatsapp}</p>
                           </div>
                           
-                          {vehiculo.totalMultas > 0 ? (
-                            <div className="bg-red-50 p-3 rounded-xl text-center">
-                              <p className="font-black text-red-700 text-sm">Deuda: ${vehiculo.totalMultas.toLocaleString('es-AR')}</p>
+                          {vehiculo.deudaActiva > 0 ? (
+                            <div className="bg-red-50 border border-red-200 p-3 rounded-xl text-center shadow-inner">
+                              <p className="text-[10px] font-bold text-red-600 uppercase mb-0.5">Usuario Inhabilitado</p>
+                              <p className="font-black text-red-700 text-sm">Deuda: ${vehiculo.deudaActiva.toLocaleString('es-AR')}</p>
                             </div>
                           ) : (
-                            <div className="bg-emerald-50 p-3 rounded-xl text-center">
-                              <p className="font-black text-emerald-700 text-sm">Activo y al día</p>
+                            <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center">
+                              <p className="font-black text-emerald-700 text-sm">🟢 Activo y al día</p>
                             </div>
                           )}
                         </div>
 
-                        {/* Botón tickets */}
                         <button 
                           onClick={() => setMostrarTickets(!mostrarTickets)}
                           className="w-full bg-gray-800 text-white px-4 py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 active:scale-95 transition-all"
@@ -261,26 +257,51 @@ export default function ModuloAuditoria({ reservas }) {
                           <svg className={`w-4 h-4 transition-transform ${mostrarTickets ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
                           </svg>
-                          {mostrarTickets ? 'Ocultar Tickets' : `Ver Tickets (${vehiculo.historial.length})`}
+                          {mostrarTickets ? 'Ocultar Historial' : `Ver Historial (${vehiculo.operaciones})`}
                         </button>
 
-                        {/* Tickets en mobile */}
                         {mostrarTickets && (
-                          <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                            {vehiculo.historial.slice().reverse().map(ticket => (
-                              <div key={ticket.id} className="bg-white border-2 border-dashed border-gray-300 p-3 rounded-xl text-xs">
-                                <div className="flex justify-between items-center mb-2">
-                                  <span className="font-black text-gray-800">#{ticket.id}</span>
-                                  <span className="text-gray-500">{new Date(ticket.horaSalida).toLocaleDateString()}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-500">Lugar: <b>{ticket.cochera?.codigo}</b></span>
-                                  <span className={`font-black ${ticket.montoTotal > 500 ? 'text-red-600' : 'text-emerald-600'}`}>
-                                    ${ticket.montoTotal.toLocaleString('es-AR')}
-                                  </span>
-                                </div>
+                          <div className="space-y-4 max-h-[400px] overflow-y-auto pb-2 custom-scrollbar">
+                            {vehiculo.infracciones.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="text-[11px] font-black text-red-600 uppercase tracking-widest bg-red-50 py-1 px-2 rounded">⚠️ Infracciones Pendientes</h4>
+                                {vehiculo.infracciones.map(ticket => (
+                                  <div key={ticket.id} className="bg-white border-2 border-red-300 p-3 rounded-xl text-xs shadow-sm relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
+                                    <div className="flex justify-between items-center mb-2 pl-2">
+                                      <span className="font-black text-gray-800">#{ticket.id}</span>
+                                      <span className="text-gray-500">{new Date(ticket.horaSalida).toLocaleDateString()}</span>
+                                    </div>
+                                    <div className="flex justify-between pl-2">
+                                      <span className="text-gray-500">Lugar: <b>{ticket.cochera?.codigo}</b></span>
+                                      <span className="font-black text-red-600">
+                                        ${ticket.montoTotal.toLocaleString('es-AR')}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
+                            )}
+
+                            {vehiculo.historialPagado.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="text-[11px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 py-1 px-2 rounded">✅ Historial Pagado</h4>
+                                {vehiculo.historialPagado.slice().reverse().map(ticket => (
+                                  <div key={ticket.id} className="bg-white border-2 border-dashed border-gray-300 p-3 rounded-xl text-xs opacity-80">
+                                    <div className="flex justify-between items-center mb-2">
+                                      <span className="font-black text-gray-600">#{ticket.id}</span>
+                                      <span className="text-gray-400">{new Date(ticket.horaSalida).toLocaleDateString()}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500">Lugar: <b>{ticket.cochera?.codigo}</b></span>
+                                      <span className="font-black text-gray-600">
+                                        ${ticket.montoTotal.toLocaleString('es-AR')}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </>
@@ -302,8 +323,8 @@ export default function ModuloAuditoria({ reservas }) {
                 <th className="p-3 lg:p-4 font-bold">Dominio / Patente</th>
                 <th className="p-3 lg:p-4 font-bold">Usuario / Matrícula</th>
                 <th className="p-3 lg:p-4 font-bold text-center">Ingresos</th>
-                <th className="p-3 lg:p-4 font-bold text-center">Comportamiento</th>
-                <th className="p-3 lg:p-4 font-bold text-center">Perfil</th>
+                <th className="p-3 lg:p-4 font-bold text-center">Estado Operativo</th>
+                <th className="p-3 lg:p-4 font-bold text-center">Acción</th>
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-gray-100">
@@ -322,7 +343,7 @@ export default function ModuloAuditoria({ reservas }) {
                   </td>
                 </tr>
               ) : (
-                auditoriaFiltrada.map((vehiculo, index) => {
+                auditoriaFiltrada.map((vehiculo) => {
                   const { datosInstitucionales } = vehiculo;
                   return (
                     <Fragment key={vehiculo.patente}>
@@ -352,24 +373,26 @@ export default function ModuloAuditoria({ reservas }) {
                             {vehiculo.operaciones}
                           </span>
                         </td>
+                        
                         <td className="p-3 lg:p-4 text-center">
-                          {vehiculo.totalMultas > 0 ? (
-                            <span className="inline-flex items-center gap-1 bg-red-50 text-red-700 px-2.5 py-1 rounded-lg font-bold text-xs border border-red-200 pulse-debt">
-                              Deuda: ${vehiculo.totalMultas.toLocaleString('es-AR')}
+                          {vehiculo.deudaActiva > 0 ? (
+                            <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 px-3 py-1.5 rounded-xl font-black text-xs border border-red-200 pulse-debt shadow-sm">
+                              🔴 Deuda: ${vehiculo.deudaActiva.toLocaleString('es-AR')}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg font-bold text-xs border border-emerald-200">
-                              Al Día
+                            <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-xl font-black text-xs border border-emerald-200">
+                              🟢 Al Día
                             </span>
                           )}
                         </td>
+                        
                         <td className="p-3 lg:p-4 text-center">
                           <button 
                             onClick={() => handleExpandirFicha(vehiculo.patente)} 
                             className={`px-4 py-2 rounded-lg font-black text-xs transition-all duration-300 active:scale-95 ${
                               patenteExpandida === vehiculo.patente
-                                ? 'bg-gray-800 text-white'
-                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                                ? 'bg-gray-800 text-white shadow-inner'
+                                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
                             }`}
                           >
                             {patenteExpandida === vehiculo.patente ? 'CERRAR' : 'VER CREDENCIAL'}
@@ -377,10 +400,9 @@ export default function ModuloAuditoria({ reservas }) {
                         </td>
                       </tr>
 
-                      {/* Acordeón expandido en desktop */}
                       {patenteExpandida === vehiculo.patente && (
                         <tr className="bg-gradient-to-b from-blue-50/30 via-white to-white">
-                          <td colSpan="5" className="p-4 lg:p-6 border-l-4 border-blue-600">
+                          <td colSpan="5" className={`p-4 lg:p-6 border-l-4 ${vehiculo.deudaActiva > 0 ? 'border-red-500' : 'border-emerald-500'}`}>
                             {cargandoFicha ? (
                               <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
                                 <div className="flex items-center gap-4">
@@ -392,10 +414,12 @@ export default function ModuloAuditoria({ reservas }) {
                                 </div>
                               </div>
                             ) : (
-                              <div className="animate-[expandDown_0.4s_ease-out] origin-top">
+                              <div className="animate-[expandDown_0.4s_ease-out] origin-top space-y-4">
+                                
+                                {/* Credencial Principal Desktop */}
                                 <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden flex flex-col md:flex-row">
                                   
-                                  <div className="hidden md:block w-1.5 bg-gradient-to-b from-blue-600 to-blue-800 flex-shrink-0"></div>
+                                  <div className={`hidden md:block w-1.5 flex-shrink-0 ${vehiculo.deudaActiva > 0 ? 'bg-red-500' : 'bg-gradient-to-b from-blue-600 to-blue-800'}`}></div>
 
                                   <div className="p-4 sm:p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-100 bg-gradient-to-b from-gray-50 to-white md:min-w-[180px] relative">
                                     <div className="w-24 h-32 sm:w-28 sm:h-36 bg-gradient-to-br from-gray-100 to-white border-2 border-gray-300 rounded-2xl shadow-lg flex items-center justify-center overflow-hidden">
@@ -457,15 +481,17 @@ export default function ModuloAuditoria({ reservas }) {
                                         <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Patente Autorizada</p>
                                         <p className="font-black text-lg sm:text-xl text-blue-700 uppercase tracking-wider">{vehiculo.patente}</p>
                                       </div>
+                                      
                                       <div className="text-right">
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Estado</p>
-                                        {vehiculo.totalMultas > 0 ? (
-                                          <span className="inline-flex items-center gap-1 bg-red-50 text-red-700 font-black px-3 py-1.5 rounded-xl text-xs border border-red-200 pulse-debt">
-                                            Deuda: ${vehiculo.totalMultas.toLocaleString('es-AR')}
+                                        <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Estado Operativo</p>
+                                        {vehiculo.deudaActiva > 0 ? (
+                                          <span className="inline-flex flex-col items-end gap-0.5 bg-red-50 text-red-700 px-3 py-1.5 rounded-xl border border-red-200 pulse-debt shadow-sm">
+                                            <span className="font-black text-[10px] uppercase">🔴 Inhabilitado</span>
+                                            <span className="font-black text-sm">Deuda: ${vehiculo.deudaActiva.toLocaleString('es-AR')}</span>
                                           </span>
                                         ) : (
-                                          <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 font-black px-3 py-1.5 rounded-xl text-xs border border-emerald-200">
-                                            Al Día
+                                          <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 font-black px-4 py-2 rounded-xl text-sm border border-emerald-200">
+                                            🟢 Al Día
                                           </span>
                                         )}
                                       </div>
@@ -473,40 +499,76 @@ export default function ModuloAuditoria({ reservas }) {
                                   </div>
                                 </div>
 
-                                {/* Botón tickets */}
-                                <div className="mt-4 text-center">
+                                <div className="text-center pt-2">
                                   <button 
                                     onClick={() => setMostrarTickets(!mostrarTickets)}
-                                    className="bg-gray-800 hover:bg-gray-900 text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 mx-auto"
+                                    className="bg-gray-800 hover:bg-gray-900 text-white px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 mx-auto shadow-md hover:shadow-lg"
                                   >
                                     <svg className={`w-4 h-4 transition-transform ${mostrarTickets ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
                                     </svg>
-                                    {mostrarTickets ? 'Ocultar Tickets' : `Ver Tickets (${vehiculo.historial.length})`}
+                                    {mostrarTickets ? 'Ocultar Desglose' : `Ver Desglose (${vehiculo.operaciones})`}
                                   </button>
                                 </div>
 
-                                {/* Tickets */}
+                                {/* Historial Desplegado Desktop */}
                                 {mostrarTickets && (
-                                  <div className="mt-4 bg-gray-50 p-3 sm:p-4 rounded-2xl border border-gray-200 animate-[expandDown_0.4s_ease-out] origin-top">
-                                    <div className="max-h-[300px] sm:max-h-[400px] overflow-y-auto custom-scrollbar">
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-                                        {vehiculo.historial.slice().reverse().map(ticket => (
-                                          <div key={ticket.id} className="bg-white border-2 border-dashed border-gray-300 p-3 rounded-xl text-xs hover:shadow-md transition-all">
-                                            <div className="flex justify-between items-center mb-2">
-                                              <span className="font-black text-gray-800">#{ticket.id}</span>
-                                              <span className="text-gray-500 text-[10px]">{new Date(ticket.horaSalida).toLocaleDateString()}</span>
+                                  <div className="bg-gray-50 p-4 sm:p-5 rounded-2xl border border-gray-200 animate-[expandDown_0.4s_ease-out] origin-top grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    
+                                    <div className="space-y-3">
+                                      <h4 className="text-[11px] font-black text-red-600 uppercase tracking-widest bg-red-50 py-1.5 px-3 rounded-lg border border-red-100 flex items-center gap-2">
+                                        ⚠️ Infracciones Pendientes
+                                        <span className="bg-red-600 text-white rounded-full px-2 py-0.5 text-[9px]">{vehiculo.infracciones.length}</span>
+                                      </h4>
+                                      <div className="max-h-[300px] overflow-y-auto custom-scrollbar pr-2 space-y-2.5">
+                                        {vehiculo.infracciones.length === 0 ? (
+                                          <p className="text-xs font-bold text-gray-400 italic pl-2">No registra deudas pendientes.</p>
+                                        ) : (
+                                          vehiculo.infracciones.map(ticket => (
+                                            <div key={ticket.id} className="bg-white border-l-4 border-y border-r border-red-500 border-y-red-100 border-r-red-100 p-3 rounded-lg shadow-sm hover:shadow-md transition-all">
+                                              <div className="flex justify-between items-center mb-1">
+                                                <span className="font-black text-gray-800 text-xs">#{ticket.id}</span>
+                                                <span className="text-gray-500 text-[10px] font-bold">{new Date(ticket.horaSalida).toLocaleDateString()}</span>
+                                              </div>
+                                              <div className="flex justify-between items-center">
+                                                <span className="text-gray-500 text-[11px]">Cajón: <b>{ticket.cochera?.codigo}</b></span>
+                                                <span className="font-black text-red-600 text-sm">
+                                                  ${ticket.montoTotal.toLocaleString('es-AR')}
+                                                </span>
+                                              </div>
                                             </div>
-                                            <div className="flex justify-between items-center">
-                                              <span className="text-gray-500">Lugar: <b>{ticket.cochera?.codigo}</b></span>
-                                              <span className={`font-black ${ticket.montoTotal > 500 ? 'text-red-600' : 'text-emerald-600'}`}>
-                                                ${ticket.montoTotal.toLocaleString('es-AR')}
-                                              </span>
-                                            </div>
-                                          </div>
-                                        ))}
+                                          ))
+                                        )}
                                       </div>
                                     </div>
+
+                                    <div className="space-y-3">
+                                      <h4 className="text-[11px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 py-1.5 px-3 rounded-lg border border-emerald-100 flex items-center gap-2">
+                                        ✅ Historial Pagado
+                                        <span className="bg-emerald-600 text-white rounded-full px-2 py-0.5 text-[9px]">{vehiculo.historialPagado.length}</span>
+                                      </h4>
+                                      <div className="max-h-[300px] overflow-y-auto custom-scrollbar pr-2 space-y-2.5">
+                                        {vehiculo.historialPagado.length === 0 ? (
+                                          <p className="text-xs font-bold text-gray-400 italic pl-2">No registra operaciones completadas.</p>
+                                        ) : (
+                                          vehiculo.historialPagado.slice().reverse().map(ticket => (
+                                            <div key={ticket.id} className="bg-white border-2 border-dashed border-gray-200 p-3 rounded-lg opacity-80 hover:opacity-100 transition-all">
+                                              <div className="flex justify-between items-center mb-1">
+                                                <span className="font-black text-gray-500 text-xs">#{ticket.id}</span>
+                                                <span className="text-gray-400 text-[10px] font-bold">{new Date(ticket.horaSalida).toLocaleDateString()}</span>
+                                              </div>
+                                              <div className="flex justify-between items-center">
+                                                <span className="text-gray-500 text-[11px]">Cajón: <b>{ticket.cochera?.codigo}</b></span>
+                                                <span className="font-black text-gray-600 text-sm">
+                                                  ${ticket.montoTotal.toLocaleString('es-AR')}
+                                                </span>
+                                              </div>
+                                            </div>
+                                          ))
+                                        )}
+                                      </div>
+                                    </div>
+
                                   </div>
                                 )}
                               </div>

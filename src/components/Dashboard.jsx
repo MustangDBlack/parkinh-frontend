@@ -6,21 +6,17 @@ export default function Dashboard({ reservas }) {
   const [tabActiva, setTabActiva] = useState('FINANZAS');
   
   return (
-    <div className="space-y-6 fade-in">
+    <div className="space-y-4 sm:space-y-6 fade-in">
       
-      {/* CABECERA PRINCIPAL Y TABS */}
-      <div className="bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)] border border-white/50 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Centro de Control</h2>
-          <p className="text-sm text-gray-500 font-medium">Administracion financiera y auditoria institucional</p>
-        </div>
-        <div className="flex bg-gray-100/80 p-1 rounded-xl backdrop-blur-sm">
+      {/* NAVEGACIÓN DE MÓDULOS (Segmented Control Minimalista) */}
+      <div className="flex justify-center mb-2 sm:mb-4">
+        <div className="inline-flex bg-gray-200/60 p-1.5 rounded-xl backdrop-blur-sm shadow-inner overflow-x-auto max-w-full">
           <button 
             onClick={() => setTabActiva('FINANZAS')} 
-            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-300 flex items-center gap-2 ${
+            className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 whitespace-nowrap ${
               tabActiva === 'FINANZAS' 
-                ? 'bg-white text-blue-600 shadow-[0_4px_12px_rgba(37,99,235,0.15)] scale-105' 
-                : 'text-gray-500 hover:text-gray-800 hover:bg-white/50'
+                ? 'bg-white text-blue-700 shadow-[0_4px_12px_rgba(37,99,235,0.15)]' 
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -30,10 +26,10 @@ export default function Dashboard({ reservas }) {
           </button>
           <button 
             onClick={() => setTabActiva('AUDITORIA')} 
-            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-300 flex items-center gap-2 ${
+            className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 whitespace-nowrap ${
               tabActiva === 'AUDITORIA' 
-                ? 'bg-white text-blue-600 shadow-[0_4px_12px_rgba(37,99,235,0.15)] scale-105' 
-                : 'text-gray-500 hover:text-gray-800 hover:bg-white/50'
+                ? 'bg-white text-blue-700 shadow-[0_4px_12px_rgba(37,99,235,0.15)]' 
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -45,8 +41,10 @@ export default function Dashboard({ reservas }) {
       </div>
 
       {/* RENDERIZADO CONDICIONAL DE MÓDULOS */}
-      {tabActiva === 'FINANZAS' && <ModuloFinanzas reservas={reservas} />}
-      {tabActiva === 'AUDITORIA' && <ModuloAuditoria reservas={reservas} />}
+      <div className="transition-all duration-300">
+        {tabActiva === 'FINANZAS' && <ModuloFinanzas reservas={reservas} />}
+        {tabActiva === 'AUDITORIA' && <ModuloAuditoria reservas={reservas} />}
+      </div>
 
     </div>
   );
