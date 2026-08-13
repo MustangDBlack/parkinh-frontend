@@ -100,7 +100,7 @@ export default function ModalFicha({ info, onClose, onLiberar }) {
               </div>
               <div className="flex gap-2 relative z-10">
                 <span className="bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 text-[10px] font-black px-3 py-1.5 rounded-xl uppercase border border-blue-300 shadow-sm">
-                  {reserva.tipoPase?.replace('_', ' ')}
+                  {reserva.tipoPase ? reserva.tipoPase.replace('_', ' ') : 'ESTANDAR'}
                 </span>
               </div>
             </div>

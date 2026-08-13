@@ -8,9 +8,14 @@ export default function ModalHistorial({ usuario, onClose, onPagarDeuda }) {
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
+    if (!usuario?.username) return;
+
     // 🚀 Obtenemos el historial fresco del backend usando la variable de entorno
     fetch(`${BACKEND_URL}/api/reservas/usuario/${usuario.username}`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error("Error al obtener historial");
+        return res.json();
+      })
       .then(data => {
         setHistorial(data);
         setCargando(false);
@@ -41,10 +46,10 @@ export default function ModalHistorial({ usuario, onClose, onPagarDeuda }) {
             </div>
             <div>
               <h2 className="text-lg font-black text-slate-800">Mis Tickets y Deudas</h2>
-              <p className="text-xs text-slate-500 font-medium">Historial de {usuario.username}</p>
+              <p className="text-xs text-slate-500 font-medium">Historial de @{usuario?.username}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-colors">
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-colors cursor-pointer">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
@@ -62,7 +67,7 @@ export default function ModalHistorial({ usuario, onClose, onPagarDeuda }) {
                 <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
               </div>
               <h3 className="text-slate-700 font-bold">No tienes tickets aún</h3>
-              <p className="text-slate-500 text-sm mt-1">Tus reservas aparecerán aquí.</p>
+              <p className="text-slate-500 text-sm mt-1">Tus reservas y movimientos aparecerán aquí.</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -96,28 +101,28 @@ export default function ModalHistorial({ usuario, onClose, onPagarDeuda }) {
                         </div>
                       </div>
 
-                      {/* Monto y Acción */}
+                      {/* Monto */}
                       <div className="text-right flex flex-col items-end justify-center min-w-[100px]">
                         <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Total</p>
                         <p className={`text-xl font-black ${esDeudor ? 'text-rose-600' : 'text-slate-800'}`}>
-                          ${reserva.montoTotal}
+                          ${reserva.montoTotal ? reserva.montoTotal.toFixed(2) : '0.00'}
                         </p>
                       </div>
                     </div>
 
-                    {/* Botón de pago (Solo si debe) */}
+                    {/* Botón de pago de deuda */}
                     {esDeudor && (
                       <div className="mt-4 pt-4 border-t border-rose-100 flex items-center justify-between">
                         <div className="flex items-center gap-2 text-rose-600 text-xs font-bold">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                          Requiere pago para habilitar cuenta
+                          Requiere regularización para habilitar tu cuenta
                         </div>
                         <button 
                           onClick={() => onPagarDeuda(reserva)}
-                          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white text-sm font-bold rounded-lg shadow-md shadow-blue-500/30 transition-all active:scale-95 flex items-center gap-2"
+                          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white text-sm font-bold rounded-lg shadow-md shadow-blue-500/30 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-                          Pagar Deuda
+                          Saldar Deuda
                         </button>
                       </div>
                     )}

@@ -14,10 +14,26 @@ export default function TicketModal({ ticketModal, setTicketModal, imprimirTicke
   const fechaSalida = ticketModal.horaSalida ? new Date(ticketModal.horaSalida) : null;
   
   let tieneMulta = false;
+  let desgloseHorasExtra = [];
+
   if (!esReserva && fechaVencimiento && fechaSalida) {
     const diferenciaMinutos = (fechaSalida - fechaVencimiento) / (1000 * 60);
+    
+    // Si excede la tolerancia de 15 minutos
     if (diferenciaMinutos > 15) {
       tieneMulta = true;
+      const horasExtra = Math.ceil(diferenciaMinutos / 60.0);
+      
+      // Construimos el desglose idéntico al backend: Base ($500) + Multa exponencial
+      for (let i = 1; i <= horasExtra; i++) {
+        const multaExponencial = 200 * Math.pow(2, i - 1); // 200, 400, 800, 1600...
+        const costoHoraExtra = 500 + multaExponencial;      // Base ($500) + Multa
+        desgloseHorasExtra.push({
+          hora: i,
+          multa: multaExponencial,
+          total: costoHoraExtra
+        });
+      }
     }
   }
 
@@ -44,7 +60,6 @@ export default function TicketModal({ ticketModal, setTicketModal, imprimirTicke
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-slate-900/70 via-slate-800/60 to-slate-900/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-[99999] print:absolute print:inset-0 print:bg-white print:p-0 animate-[fadeIn_0.3s_ease-out]">
       
-      {/* 🚀 CONTENEDOR PRINCIPAL: Añadido max-h-[95vh] y overflow-y-auto para responsividad */}
       <div className="bg-white/95 backdrop-blur-xl p-4 sm:p-6 rounded-[2rem] shadow-[0_25px_80px_rgba(0,0,0,0.4)] max-w-sm w-full max-h-[95vh] overflow-y-auto border-2 border-dashed border-gray-300 print:border-none print:shadow-none print:max-h-none print:overflow-visible print:p-0 relative animate-[fadeIn_0.5s_ease-out] scrollbar-hide">
         
         <div className="absolute top-2 left-1/2 transform -translate-x-1/2 w-24 h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent opacity-30 rounded-full print:hidden"></div>
@@ -58,7 +73,7 @@ export default function TicketModal({ ticketModal, setTicketModal, imprimirTicke
             </svg>
           </div>
           
-          {/* 🚀 CABECERA COMPACTADA */}
+          {/* CABECERA COMPACTADA */}
           <div className="text-center border-b-2 border-gray-200 pb-3 mb-3 relative">
             <div className="flex justify-center mb-1.5">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-700 to-blue-600 text-white rounded-xl flex items-center justify-center font-black text-base shadow-md">
@@ -71,7 +86,7 @@ export default function TicketModal({ ticketModal, setTicketModal, imprimirTicke
             </p>
           </div>
           
-          {/* 🚀 DATOS COMPACTADOS (text-xs y gap-2) */}
+          {/* DATOS COMPACTADOS */}
           <div className="flex flex-col gap-2 text-xs sm:text-sm text-gray-700 font-mono relative">
             <div className="flex justify-between items-center">
               <span className="text-gray-500">COMPROBANTE:</span>
@@ -96,7 +111,7 @@ export default function TicketModal({ ticketModal, setTicketModal, imprimirTicke
             
             <div className="flex justify-between items-center">
               <span className="text-gray-500">TIPO PASE:</span>
-              <span className="font-bold text-gray-800">
+              <span className="font-bold text-gray-800 uppercase">
                 {ticketModal.tipoPase ? ticketModal.tipoPase.replace('_', ' ') : 'ESTANDAR'}
               </span>
             </div>
@@ -138,13 +153,26 @@ export default function TicketModal({ ticketModal, setTicketModal, imprimirTicke
               )}
             </div>
             
+            {/* --- SECCIÓN DE DESGLOSE DE MULTAS EXPONENCIALES EN EL TICKET --- */}
             {tieneMulta && (
-              <div className="mt-1 bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 text-red-700 px-2 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold text-center shadow-sm">
-                <div className="flex items-center justify-center gap-1">
-                  <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="mt-1 bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 text-red-800 p-2.5 rounded-lg text-[11px] shadow-sm">
+                <div className="font-bold text-center mb-1.5 text-red-700 flex items-center justify-center gap-1">
+                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
-                  RECARGO POR EXCESO INCLUIDO
+                  DETALLE DE RECARGOS POR EXCESO
+                </div>
+                <div className="space-y-1 border-t border-red-200/60 pt-1.5 text-[10px]">
+                  <div className="flex justify-between">
+                    <span>Tarifa Base Inicial:</span>
+                    <span className="font-semibold">$500.00</span>
+                  </div>
+                  {desgloseHorasExtra.map((item, idx) => (
+                    <div key={idx} className="flex justify-between text-red-700 font-medium">
+                      <span>Hora Extra {item.hora} (Base $500 + ${item.multa}):</span>
+                      <span>${item.total.toFixed(2)}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -181,7 +209,7 @@ export default function TicketModal({ ticketModal, setTicketModal, imprimirTicke
           </div>
         </div>
 
-        {/* 🚀 BOTONERA COMPACTADA (py-2.5 y gap-2) */}
+        {/* BOTONERA COMPACTADA */}
         <div className="mt-3 flex flex-col gap-2 print:hidden">
           <button 
             onClick={descargarTicket} 

@@ -120,7 +120,7 @@ export default function NotificacionPush({ mensaje, tipo = 'alerta', onClose }) 
             setVisible(false);
             setTimeout(onClose, 300);
           }} 
-          className="relative z-10 text-white/70 hover:text-white transition-colors duration-200 hover:bg-white/10 rounded-lg p-1 flex-shrink-0"
+          className="relative z-10 text-white/70 hover:text-white transition-colors duration-200 hover:bg-white/10 rounded-lg p-1 flex-shrink-0 cursor-pointer"
           aria-label="Cerrar notificación"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,7 +129,7 @@ export default function NotificacionPush({ mensaje, tipo = 'alerta', onClose }) 
         </button>
       </div>
 
-      {/* ESTILOS CORREGIDOS */}
+      {/* ESTILOS CSS */}
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes shrink {
           from { width: 100%; }

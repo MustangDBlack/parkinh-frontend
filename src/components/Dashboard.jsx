@@ -13,7 +13,7 @@ export default function Dashboard({ reservas }) {
         <div className="inline-flex bg-gray-200/60 p-1.5 rounded-xl backdrop-blur-sm shadow-inner overflow-x-auto max-w-full">
           <button 
             onClick={() => setTabActiva('FINANZAS')} 
-            className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 whitespace-nowrap ${
+            className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 whitespace-nowrap cursor-pointer ${
               tabActiva === 'FINANZAS' 
                 ? 'bg-white text-blue-700 shadow-[0_4px_12px_rgba(37,99,235,0.15)]' 
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
@@ -26,7 +26,7 @@ export default function Dashboard({ reservas }) {
           </button>
           <button 
             onClick={() => setTabActiva('AUDITORIA')} 
-            className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 whitespace-nowrap ${
+            className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 flex items-center gap-2 whitespace-nowrap cursor-pointer ${
               tabActiva === 'AUDITORIA' 
                 ? 'bg-white text-blue-700 shadow-[0_4px_12px_rgba(37,99,235,0.15)]' 
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'

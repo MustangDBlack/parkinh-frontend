@@ -97,7 +97,7 @@ export default function ModuloFinanzas({ reservas }) {
                 <button 
                   key={filtro.key} 
                   onClick={() => setFiltroTiempo(filtro.key)} 
-                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs font-black transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
+                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs font-black transition-all duration-300 whitespace-nowrap flex-shrink-0 cursor-pointer ${
                     filtroTiempo === filtro.key 
                       ? 'bg-white text-blue-700 shadow-[0_2px_8px_rgba(37,99,235,0.12)] border border-blue-100' 
                       : 'text-gray-500 hover:bg-white/50 hover:text-gray-700 border border-transparent'
@@ -106,7 +106,6 @@ export default function ModuloFinanzas({ reservas }) {
                   <svg className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 ${filtroTiempo === filtro.key ? 'text-blue-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={filtro.icon} />
                   </svg>
-                  {/* EL TEXTO AHORA SIEMPRE ES VISIBLE */}
                   <span>{filtro.label}</span>
                 </button>
               ))}
@@ -304,7 +303,7 @@ export default function ModuloFinanzas({ reservas }) {
                     </td>
                   </tr>
                 ) : (
-                  datosFiltrados.slice().reverse().map((reserva, index) => (
+                  datosFiltrados.slice().reverse().map((reserva) => (
                     <tr 
                       key={reserva.id} 
                       className="hover:bg-blue-50/20 transition-all duration-200 group"
@@ -325,7 +324,7 @@ export default function ModuloFinanzas({ reservas }) {
                         </span>
                       </td>
                       <td className="p-2.5 sm:p-4">
-                        <span className="text-gray-700 font-bold text-[10px] sm:text-xs">
+                        <span className="text-gray-700 font-bold text-[10px] sm:text-xs uppercase">
                           {reserva.tipoPase ? reserva.tipoPase.replace('_', ' ') : 'ESTANDAR'}
                         </span>
                       </td>
@@ -352,8 +351,8 @@ export default function ModuloFinanzas({ reservas }) {
         </div>
       </div>
 
-      {/* ESTILOS */}
-      <style jsx>{`
+      {/* ESTILOS (Libre de warnings de React) */}
+      <style dangerouslySetInnerHTML={{__html: `
         .pulse-debt {
           animation: pulseRed 2s infinite;
         }
@@ -380,7 +379,7 @@ export default function ModuloFinanzas({ reservas }) {
             100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
           }
         }
-      `}</style>
+      `}} />
     </div>
   );
 }

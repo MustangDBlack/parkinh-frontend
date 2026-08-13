@@ -1,4 +1,17 @@
+import { useEffect } from 'react';
+
 export default function EstadoPago({ estado }) {
+  
+  // 🚀 BLINDAJE COGNITIVO: Limpia automáticamente los parámetros colgantes de la URL de Mercado Pago tras 3 segundos
+  useEffect(() => {
+    if (window.location.search) {
+      const timer = setTimeout(() => {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
   // Configuramos los textos y colores segun el resultado
   const configuracion = {
     exitoso: { 
@@ -12,8 +25,8 @@ export default function EstadoPago({ estado }) {
           <div className="absolute -top-1 -right-1 w-6 h-6 bg-emerald-300 rounded-full animate-[ping_1.5s_infinite] opacity-75"></div>
         </div>
       ), 
-      titulo: 'Pago Exitoso!', 
-      texto: 'Tu reserva digital en el IES Nuevo Horizonte esta confirmada. Ya tienes tu lugar asegurado.',
+      titulo: '¡Pago Aprobado!', 
+      texto: 'Tu transacción con Mercado Pago se procesó correctamente. Los cambios e incrementos de tiempo ya impactaron en tu cuenta.',
       colorTexto: 'text-emerald-600',
       colorFondo: 'bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100',
       colorBorde: 'border-emerald-500',
@@ -33,7 +46,7 @@ export default function EstadoPago({ estado }) {
         </div>
       ), 
       titulo: 'Pago Pendiente', 
-      texto: 'Estamos esperando la confirmacion del pago. Te avisaremos en cuanto se acredite.',
+      texto: 'Estamos esperando la confirmación de la pasarela. Te avisaremos en cuanto el dinero se encuentre acreditado.',
       colorTexto: 'text-amber-600',
       colorFondo: 'bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100',
       colorBorde: 'border-amber-500',
@@ -41,7 +54,7 @@ export default function EstadoPago({ estado }) {
       sombraBoton: 'shadow-[0_8px_24px_rgba(245,158,11,0.3)] hover:shadow-[0_12px_32px_rgba(245,158,11,0.4)]',
       decoracion: 'rgba(245, 158, 11, 0.05)'
     },
-    fallido: { 
+    fallfailed: { 
       icono: (
         <div className="relative">
           <div className="w-20 h-20 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center shadow-[0_8px_32px_rgba(239,68,68,0.3)] animate-[fadeIn_0.5s_ease-out]">
@@ -53,7 +66,7 @@ export default function EstadoPago({ estado }) {
         </div>
       ), 
       titulo: 'Pago Rechazado', 
-      texto: 'Hubo un problema procesando tu pago. Por favor, intenta nuevamente.',
+      texto: 'Hubo un problema procesando la transacción de tu recargo o prórroga. Ningún cargo fue efectuado.',
       colorTexto: 'text-red-600',
       colorFondo: 'bg-gradient-to-br from-red-50 via-rose-50 to-red-100',
       colorBorde: 'border-red-500',
@@ -63,7 +76,7 @@ export default function EstadoPago({ estado }) {
     }
   };
 
-  const actual = configuracion[estado] || configuracion.fallido;
+  const actual = configuracion[estado] || configuracion.fallfailed;
 
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 ${actual.colorFondo} relative overflow-hidden`}>
@@ -122,7 +135,7 @@ export default function EstadoPago({ estado }) {
         {estado === 'fallido' && (
           <div className="mb-6 p-4 bg-red-50 rounded-2xl border border-red-200">
             <p className="text-red-700 text-sm font-medium">
-              Verifica los datos de tu tarjeta e intenta nuevamente
+              Verifica los fondos o datos de tu cuenta e intenta nuevamente
             </p>
           </div>
         )}
@@ -133,24 +146,24 @@ export default function EstadoPago({ estado }) {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span className="font-bold">Reserva confirmada exitosamente</span>
+              <span className="font-bold">Ecosistema de cobro actualizado</span>
             </div>
           </div>
         )}
         
-        {/* Boton de accion */}
-        <a 
-          href="/" 
-          className={`${actual.colorBoton} text-white font-bold py-4 px-8 rounded-2xl transition-all duration-300 w-full inline-block ${actual.sombraBoton} transform hover:-translate-y-0.5 active:scale-95 relative overflow-hidden group`}
+        {/* Boton de accion controlado */}
+        <button 
+          onClick={() => window.location.href = '/'}
+          className={`${actual.colorBoton} text-white font-bold py-4 px-8 rounded-2xl transition-all duration-300 w-full inline-block ${actual.sombraBoton} transform hover:-translate-y-0.5 active:scale-95 relative overflow-hidden group cursor-pointer`}
         >
           <span className="relative z-10 flex items-center justify-center gap-2">
             <svg className="w-5 h-5 transition-transform duration-300 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            Volver al Inicio
+            Volver al Panel Central
           </span>
           <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-        </a>
+        </button>
         
         {/* Pie de pagina institucional */}
         <p className="mt-6 text-xs text-slate-400 font-medium">

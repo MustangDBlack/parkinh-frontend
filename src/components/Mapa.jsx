@@ -1,9 +1,130 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 
+// --- SUBCOMPONENTE: BARRA DE TIEMPO HORIZONTAL ULTRA DELGADA Y MINIMALISTA ---
+const MiniReloj = ({ reserva, onExtender }) => {
+  const [tiempo, setTiempo] = useState({
+    horas: 0,
+    minutos: 0,
+    segundos: 0,
+    expirado: false,
+    textoExceso: '',
+    porcentaje: 100
+  });
+
+  useEffect(() => {
+    if (!reserva || !reserva.horaFinEsperada) return;
+
+    const interval = setInterval(() => {
+      const ahora = new Date().getTime();
+      const entrada = new Date(reserva.horaEntrada).getTime();
+      const fin = new Date(reserva.horaFinEsperada).getTime();
+
+      const totalMs = fin - entrada;
+      const restanteMs = fin - ahora;
+
+      if (restanteMs <= 0) {
+        const excesoMs = Math.abs(restanteMs);
+        const totalSegundos = Math.floor(excesoMs / 1000);
+        const horas = Math.floor(totalSegundos / 3600);
+        const minutos = Math.floor((totalSegundos % 3600) / 60);
+        const segundos = totalSegundos % 60;
+
+        setTiempo({
+          expirado: true,
+          textoExceso: `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}`,
+          porcentaje: 0
+        });
+      } else {
+        const totalSegundos = Math.floor(restanteMs / 1000);
+        const horas = Math.floor(totalSegundos / 3600);
+        const minutos = Math.floor((totalSegundos % 3600) / 60);
+        const segundos = totalSegundos % 60;
+        const porcentaje = Math.max(0, Math.min(100, (restanteMs / totalMs) * 100));
+
+        setTiempo({
+          expirado: false,
+          horas,
+          minutos,
+          segundos,
+          porcentaje
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [reserva]);
+
+  return (
+    <div className="mt-4 bg-white/90 backdrop-blur-xl border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-[0_4px_24px_rgba(0,0,0,0.04)] flex flex-col lg:flex-row items-center justify-between gap-4 relative overflow-hidden animate-[fadeIn_0.4s_ease-out]">
+      {/* Línea decorativa minimalista superior */}
+      <div className={`absolute top-0 left-0 h-[3px] w-full ${tiempo.expirado ? 'bg-gradient-to-r from-red-500 to-rose-600' : 'bg-gradient-to-r from-blue-600 via-blue-500 to-sky-400'}`}></div>
+
+      {/* Info y Contador Digital HH:MM:SS */}
+      <div className="flex items-center gap-3 w-full lg:w-auto flex-shrink-0">
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-inner ${tiempo.expirado ? 'bg-rose-500/10 text-rose-600' : 'bg-blue-500/10 text-blue-600'}`}>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">
+            Tu Lugar Activo: <span className="text-slate-800 font-black">#{reserva.cochera?.codigo}</span>
+          </p>
+          {tiempo.expirado ? (
+            <p className="text-base font-black text-rose-600 leading-none tracking-tight animate-pulse">
+              ⚠️ Vencido: +{tiempo.textoExceso}
+            </p>
+          ) : (
+            <p className="text-xl font-mono font-black text-slate-800 leading-none tracking-wider">
+              {String(tiempo.horas).padStart(2, '0')}:{String(tiempo.minutos).padStart(2, '0')}:{String(tiempo.segundos).padStart(2, '0')}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Barra de progreso ultra delgada */}
+      <div className="w-full lg:flex-1 px-1 sm:px-2 flex flex-col gap-1.5">
+        <div className="w-full bg-slate-100 rounded-full h-[4px] overflow-hidden border border-slate-200/40">
+          <div 
+            className={`h-full rounded-full transition-all duration-1000 ${tiempo.expirado ? 'bg-rose-500' : 'bg-gradient-to-r from-blue-600 to-sky-400'}`}
+            style={{ width: `${tiempo.porcentaje}%` }}
+          ></div>
+        </div>
+        <div className="flex justify-between items-center text-[9px] font-black text-slate-400 uppercase tracking-wider">
+          <span>Progreso</span>
+          <span className={tiempo.expirado ? 'text-rose-500' : 'text-blue-600'}>
+            {tiempo.expirado ? 'Multa en Proceso' : `${Math.round(tiempo.porcentaje)}%`}
+          </span>
+        </div>
+      </div>
+
+      {/* Botonera Profesional Responsive de Prórrogas */}
+      <div className="w-full lg:w-auto flex flex-col sm:flex-row items-start sm:items-center gap-2 flex-shrink-0">
+        <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Extender:</span>
+        <div className="grid grid-cols-4 sm:flex gap-1.5 w-full sm:w-auto">
+          {[1, 2, 3, 4].map((h) => (
+            <button
+              key={h}
+              onClick={() => onExtender(reserva.id, h)}
+              className="py-2 px-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-black rounded-xl text-xs transition-all duration-300 active:scale-95 shadow-md shadow-blue-500/10 hover:shadow-lg cursor-pointer text-center whitespace-nowrap min-w-[52px]"
+            >
+              +{h}H
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+// --- COMPONENTE PRINCIPAL MAPA ---
 export default function Mapa({ 
   usuario, cocheras, nuevoCodigo, setNuevoCodigo, 
   agregarCochera, manejarClicCochera, eliminarCochera, 
-  reservas = [], miCochera, miPatente 
+  reservas = [], miCochera, miPatente,
+  reservaActivaUsuario, // 🚀 Prop recibido de App.jsx
+  onExtenderTiempo      // 🚀 Prop recibido de App.jsx
 }) {
   
   const [busquedaPatente, setBusquedaPatente] = useState('');
@@ -253,6 +374,14 @@ export default function Mapa({
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[shimmer_3s_infinite]"></div>
         <span className="text-[10px] sm:text-xs font-bold text-slate-400 tracking-[1em] sm:tracking-[1.5em] uppercase z-10">Circulación</span>
       </div>
+
+      {/* 🚀 EL MINI RELOJ DINÁMICO SE RENDERIZA EN ESTA SECCIÓN EXACTA (SÓLO ALUMNO CON RESERVA ACTIVA) */}
+      {usuario?.rol === 'USER' && reservaActivaUsuario && (
+        <MiniReloj 
+          reserva={reservaActivaUsuario} 
+          onExtender={onExtenderTiempo} 
+        />
+      )}
 
       {/* Footer */}
       <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between text-[10px] sm:text-xs text-slate-400">

@@ -24,10 +24,8 @@ function App() {
   if (path === '/pago-pendiente') return <EstadoPago estado="pendiente" />;
   if (path === '/pago-fallido') return <EstadoPago estado="fallido" />;
 
-  // VARIABLE DE ENTORNO LEÍDA DE FORMA SEGURA DENTRO DEL COMPONENTE
   const BACKEND_URL = import.meta.env.VITE_APP_BACKEND_URL;
 
-  // BLINDAJE 1: Lectura segura del LocalStorage para la sesión del usuario
   const [usuario, setUsuario] = useState(() => {
     try {
       const usuarioGuardado = localStorage.getItem('usuario_parquimetro');
@@ -49,6 +47,9 @@ function App() {
   // --- ESTADOS DINÁMICOS EN BASE A LA BASE DE DATOS ---
   const [miCochera, setMiCochera] = useState(null);
   const [miPatente, setMiPatente] = useState(null);
+  
+  // 🚀 NUEVO: Guardamos el objeto completo de la reserva para pasarlo al reloj
+  const [reservaActivaUsuario, setReservaActivaUsuario] = useState(null); 
 
   const [cocheras, setCocheras] = useState([]);
   const [nuevoCodigo, setNuevoCodigo] = useState('');
@@ -61,13 +62,9 @@ function App() {
   
   const [preferenceId, setPreferenceId] = useState(null);
   const [notificacion, setNotificacion] = useState(null);
-
-  // ESTADO PARA EL HISTORIAL
   const [mostrarHistorial, setMostrarHistorial] = useState(false);
 
-  // REF PARA LA MEMORIA DEL MOTOR DEL TIEMPO
   const memoriaNotificaciones = useRef({ reservaId: null, avisoInicio: false, aviso15: false, expirado: false });
-
   const [confirmacion, setConfirmacion] = useState({ isOpen: false, titulo: '', mensaje: '', onConfirmar: null, tipo: 'peligro' });
 
   useEffect(() => {
@@ -77,7 +74,34 @@ function App() {
     }
   }, [usuario]);
 
-  // 🚀 SARRIL: MOTOR DE SINCRONIZACIÓN MULTIDISPOSITIVO REAL-TIME
+  // 🚀 NUEVO: Escucha y confirmación automática del retorno oficial de Mercado Pago
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+    const rId = urlParams.get('reservaId');
+    const hs = urlParams.get('horas');
+
+    if ((status === 'approved' || window.location.pathname === '/pago-exitoso') && rId && hs) {
+      fetch(`${BACKEND_URL}/api/reservas/${rId}/confirmar-extension?horas=${hs}`, {
+        method: 'PUT'
+      })
+      .then(res => {
+        if (!res.ok) throw new Error("No se pudo impactar la prórroga.");
+        return res.json();
+      })
+      .then(() => {
+        window.history.replaceState({}, document.title, "/");
+        setNotificacion({
+          tipo: 'info',
+          mensaje: `✅ ¡Pago aprobado! Se añadieron +${hs} hora(s) correctamente a tu cochera.`
+        });
+        cargarReservas();
+      })
+      .catch(err => console.error("Error al confirmar extensión horaria:", err));
+    }
+  }, []); // Se ejecuta al montar si viene redirigido
+
+  // SARRIL: MOTOR DE SINCRONIZACIÓN MULTIDISPOSITIVO REAL-TIME
   useEffect(() => {
     if (usuario && usuario.rol === 'USER' && reservas.length > 0) {
       const miReservaActiva = [...reservas]
@@ -87,17 +111,20 @@ function App() {
       if (miReservaActiva) {
         setMiCochera(miReservaActiva.cochera?.codigo || null);
         setMiPatente(miReservaActiva.patente || null);
+        setReservaActivaUsuario(miReservaActiva); // 🚀 Lo guardamos aquí
       } else {
         setMiCochera(null);
         setMiPatente(null);
+        setReservaActivaUsuario(null); // 🚀 Lo limpiamos aquí
       }
     } else if (!usuario) {
       setMiCochera(null);
       setMiPatente(null);
+      setReservaActivaUsuario(null); // 🚀 Lo limpiamos aquí
     }
   }, [reservas, usuario]);
 
-  // --- VALIDACIÓN DE INTEGRIDAD DESDE EL BACKEND ---
+  // VALIDACIÓN DE INTEGRIDAD DESDE EL BACKEND
   useEffect(() => {
     if (usuario?.rol === 'USER' && miCochera && cocheras.length > 0) {
       const cocheraExiste = cocheras.find(c => c.codigo === miCochera);
@@ -105,6 +132,7 @@ function App() {
       if (!cocheraExiste) {
         setMiCochera(null);
         setMiPatente(null);
+        setReservaActivaUsuario(null); // 🚀 Lo limpiamos aquí
         setNotificacion({
           tipo: 'info',
           mensaje: 'El lugar que tenías asignado fue eliminado o liberado por la administración. Tu estado ha sido reiniciado.'
@@ -113,7 +141,7 @@ function App() {
     }
   }, [cocheras, miCochera, usuario]);
 
-  // --- MOTOR DEL TIEMPO BLINDADO ---
+  // MOTOR DEL TIEMPO BLINDADO
   useEffect(() => {
     if (usuario?.rol !== 'USER' || !miCochera || reservas.length === 0) return;
 
@@ -172,7 +200,6 @@ function App() {
     return () => clearInterval(intervalo);
   }, [usuario, miCochera, reservas]);
 
-  // 1. Cargar cocheras
   const cargarCocheras = () => {
     fetch(`${BACKEND_URL}/api/cocheras`)
       .then(res => {
@@ -186,7 +213,6 @@ function App() {
       });
   };
 
-  // 2. Cargar reservas
   const cargarReservas = () => {
     fetch(`${BACKEND_URL}/api/reservas`)
       .then(res => {
@@ -200,7 +226,27 @@ function App() {
       });
   };
 
-  // 3. Login
+  // 🚀 NUEVO: Función para generar la solicitud de pago de Mercado Pago
+  const solicitarExtensionDeTiempo = (reservaId, horas) => {
+    setNotificacion({ tipo: 'info', mensaje: "Iniciando pasarela de pago seguro..." });
+    
+    fetch(`${BACKEND_URL}/api/reservas/${reservaId}/solicitar-extension?horas=${horas}`, {
+      method: 'POST'
+    })
+    .then(async res => {
+      if (!res.ok) throw new Error("No se pudo generar la orden en Mercado Pago.");
+      return res.json();
+    })
+    .then(data => {
+      setNotificacion(null);
+      setPreferenceId(data.preferenceId);
+      window._datosExtensionPendiente = { reservaId, horas }; // Memoria temporal para el mock
+    })
+    .catch(err => {
+      setNotificacion({ tipo: 'peligro', mensaje: err.message });
+    });
+  };
+
   const handleLogin = (user, pass) => {
     setErrorLogin('');
     fetch(`${BACKEND_URL}/api/usuarios/login`, {
@@ -232,7 +278,6 @@ function App() {
     setMostrarHistorial(false); 
   };
 
-  // 4. Liberar Cochera
   const liberarCochera = (codigo) => {
     fetch(`${BACKEND_URL}/api/cocheras/${codigo}/salida`, { method: 'POST' })
     .then(async res => {
@@ -257,18 +302,12 @@ function App() {
       if (data && data.cochera) {
         setTicketModal(data);
       } else {
-        setNotificacion({
-          tipo: 'info',
-          mensaje: "Lugar liberado correctamente."
-        });
+        setNotificacion({ tipo: 'info', mensaje: "Lugar liberado correctamente." });
       }
     })
     .catch(err => {
       console.error(err);
-      setNotificacion({
-        tipo: 'peligro',
-        mensaje: `Operación fallida: ${err.message}`
-      });
+      setNotificacion({ tipo: 'peligro', mensaje: `Operación fallida: ${err.message}` });
     });
   };
 
@@ -307,10 +346,7 @@ function App() {
     } 
     else {
       if (usuario.rol === 'USER') {
-        setNotificacion({
-          tipo: 'info',
-          mensaje: 'Este lugar está ocupado por otro vehículo.'
-        });
+        setNotificacion({ tipo: 'info', mensaje: 'Este lugar está ocupado por otro vehículo.' });
       } else {
         const reservaActiva = reservas.find(r => r.cochera?.codigo === lugar.codigo && !r.horaSalida);
         setLugarOcupadoInfo({ lugar, reserva: reservaActiva });
@@ -318,24 +354,17 @@ function App() {
     }
   };
 
-  // 5. Procesar Reserva
   const procesarReserva = (codigo, patente, tipoPase, turno, monto) => {
     setTimeout(() => {
       const params = new URLSearchParams({ 
-        patente, 
-        tipoPase, 
-        turno, 
-        monto,
-        username: usuario.username 
+        patente, tipoPase, turno, monto, username: usuario.username 
       }).toString();
 
       fetch(`${BACKEND_URL}/api/cocheras/${codigo}/entrada?${params}`, { method: 'POST' })
       .then(async res => {
         if (!res.ok) {
            const errorData = await res.json().catch(() => ({ message: 'Error de red o servidor' }));
-           if (res.status === 403) {
-             throw new Error("🚫 " + errorData.message);
-           }
+           if (res.status === 403) throw new Error("🚫 " + errorData.message);
            throw new Error(errorData.message || 'No se pudo completar la reserva.');
         }
         return res.json(); 
@@ -349,16 +378,10 @@ function App() {
       .catch(err => {
         setLugarParaReservar(null);
         if (err.message.includes("🚫")) {
-           setNotificacion({
-             tipo: 'peligro',
-             mensaje: err.message
-           });
+           setNotificacion({ tipo: 'peligro', mensaje: err.message });
            setMostrarHistorial(true); 
         } else {
-           setNotificacion({
-             tipo: 'alerta',
-             mensaje: err.message
-           });
+           setNotificacion({ tipo: 'alerta', mensaje: err.message });
         }
       });
     }, 500); 
@@ -366,13 +389,9 @@ function App() {
 
   const procesarPagoDeuda = (reserva) => {
     setMostrarHistorial(false);
-    
     const fakePreferenceId = `FAKE_PREF_${Date.now()}`;
     
-    setNotificacion({
-      tipo: 'info',
-      mensaje: `Generating payment intent for ticket #${reserva.id}...`
-    });
+    setNotificacion({ tipo: 'info', mensaje: `Generating payment intent for ticket #${reserva.id}...` });
 
     setTimeout(() => {
       setNotificacion(null);
@@ -381,10 +400,30 @@ function App() {
     }, 1000);
   };
 
-  // 6. Finalizar Pago Mercado Pago
+  // 🚀 ACTUALIZADO: Sabe si estás pagando Deuda o Extensión
   const finalizarPagoMercadoPago = () => {
     setPreferenceId(null);
     
+    // CASO 1: Si era una extensión de tiempo
+    if (window._datosExtensionPendiente) {
+      const { reservaId: extId, horas: extHs } = window._datosExtensionPendiente;
+      
+      fetch(`${BACKEND_URL}/api/reservas/${extId}/confirmar-extension?horas=${extHs}`, { method: 'PUT' })
+        .then(async res => {
+          if (!res.ok) throw new Error("No se pudo impactar la prórroga de tiempo.");
+          return res.json();
+        })
+        .then(() => {
+          setNotificacion({ tipo: 'info', mensaje: `✅ ¡Tiempo extendido! Se agregaron +${extHs} hora(s) a tu estadía.` });
+          delete window._datosExtensionPendiente;
+          cargarReservas();
+        })
+        .catch(err => setNotificacion({ tipo: 'peligro', mensaje: err.message }));
+      
+      return; 
+    }
+
+    // CASO 2: Si era pagar una multa/deuda en el historial
     const reservaId = window._reservaDeudaActiva;
     if (!reservaId) return;
 
@@ -393,24 +432,17 @@ function App() {
         if (!res.ok) throw new Error("El servidor no pudo procesar la cancelación de la deuda.");
         return res.json();
       })
-      .then(reservaActualizada => {
-        setNotificacion({
-          tipo: 'info',
-          mensaje: "✅ ¡Deuda cancelada exitosamente! Tu cuenta ha sido habilitada para nuevas reservas."
-        });
+      .then(() => {
+        setNotificacion({ tipo: 'info', mensaje: "✅ ¡Deuda cancelada exitosamente! Tu cuenta ha sido habilitada." });
         delete window._reservaDeudaActiva;
         cargarReservas(); 
         setMostrarHistorial(true); 
       })
       .catch(err => {
-        setNotificacion({
-          tipo: 'peligro',
-          mensaje: "❌ Hubo un error al registrar tu pago: " + err.message
-        });
+        setNotificacion({ tipo: 'peligro', mensaje: "❌ Hubo un error al registrar tu pago: " + err.message });
       });
   };
 
-  // 7. Agregar Cochera
   const agregarCochera = (e) => {
     e.preventDefault();
     if (!nuevoCodigo) return;
@@ -423,20 +455,11 @@ function App() {
       if (!res.ok) throw new Error("No se pudo agregar la cochera.");
       cargarCocheras(); 
       setNuevoCodigo(''); 
-      setNotificacion({
-        tipo: 'info',
-        mensaje: `Cochera ${nuevoCodigo.toUpperCase()} agregada exitosamente.`
-      });
+      setNotificacion({ tipo: 'info', mensaje: `Cochera ${nuevoCodigo.toUpperCase()} agregada exitosamente.` });
     })
-    .catch(err => {
-      setNotificacion({
-        tipo: 'peligro',
-        mensaje: err.message
-      });
-    });
+    .catch(err => setNotificacion({ tipo: 'peligro', mensaje: err.message }));
   };
 
-  // 8. Eliminar Cochera
   const eliminarCochera = (codigo) => {
     if (usuario.rol !== 'ADMIN') return;
     setConfirmacion({
@@ -519,6 +542,8 @@ function App() {
             reservas={reservas} 
             miCochera={miCochera}
             miPatente={miPatente}
+            reservaActivaUsuario={reservaActivaUsuario} // 🚀 Pasamos la info al Mapa
+            onExtenderTiempo={solicitarExtensionDeTiempo} // 🚀 Pasamos la función de MP
           />
         )}
         
@@ -568,6 +593,7 @@ function App() {
                 onClick={() => { 
                   setPreferenceId(null); 
                   setLugarParaReservar(null);
+                  delete window._datosExtensionPendiente;
                   if (window._reservaDeudaActiva) {
                     setMostrarHistorial(true);
                     delete window._reservaDeudaActiva;

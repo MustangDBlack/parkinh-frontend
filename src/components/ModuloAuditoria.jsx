@@ -298,7 +298,7 @@ export default function ModuloAuditoria({ reservas }) {
                           {mostrarTickets ? 'Ocultar Historial' : `Ver Historial Unificado (${vehiculo.operaciones})`}
                         </button>
 
-                        {/* Historial Paginado en Mobile (Cada 5 tickets) */}
+                        {/* Historial Paginado en Mobile */}
                         {mostrarTickets && (
                           <div className="space-y-3 pb-2">
                             <div className="flex justify-between items-center bg-slate-100 py-1.5 px-3 rounded-lg text-[11px] font-black text-slate-600">
@@ -348,7 +348,8 @@ export default function ModuloAuditoria({ reservas }) {
 
                                   <div className="grid grid-cols-2 gap-1 pl-2 text-[11px] text-slate-600 pt-1 border-t border-gray-100">
                                     <div>Cajón: <b className="text-slate-800">{ticket.cochera?.codigo || 'N/A'}</b></div>
-                                    <div>Pase: <b className="text-slate-800">{ticket.tipoPase || 'ESTANDAR'}</b></div>
+                                    {/* 🚀 CORRECCIÓN: Reemplazamos guiones bajos por espacios para mostrar "4 HORAS" */}
+                                    <div>Pase: <b className="text-slate-800 uppercase">{ticket.tipoPase ? ticket.tipoPase.replace('_', ' ') : 'ESTANDAR'}</b></div>
                                     <div className="col-span-2 bg-slate-50 p-1.5 rounded border border-slate-200 mt-1 flex justify-between">
                                       <span>📥 Ingreso: <b>{horaEntradaFormateada}</b></span>
                                       <span>📤 Egreso: <b>{horaSalidaFormateada}</b></span>
@@ -620,7 +621,7 @@ export default function ModuloAuditoria({ reservas }) {
                                   </button>
                                 </div>
 
-                                {/* Historial Paginado en Desktop (Cada 5 tickets) */}
+                                {/* Historial Paginado en Desktop */}
                                 {mostrarTickets && (
                                   <div className="bg-gray-50 p-4 sm:p-5 rounded-2xl border border-gray-200 animate-[expandDown_0.4s_ease-out] origin-top space-y-3">
                                     <div className="flex justify-between items-center bg-slate-100 py-2 px-3 rounded-lg border border-slate-200 text-xs font-black text-slate-600">
@@ -671,7 +672,8 @@ export default function ModuloAuditoria({ reservas }) {
 
                                             <div className="grid grid-cols-3 gap-2 pl-2 text-xs text-slate-600 pt-1 border-t border-gray-100">
                                               <div>Cajón: <b className="text-slate-800">{ticket.cochera?.codigo || 'N/A'}</b></div>
-                                              <div>Pase: <b className="text-slate-800">{ticket.tipoPase || 'ESTANDAR'}</b></div>
+                                              {/* 🚀 CORRECCIÓN: Reemplazamos guiones bajos por espacios para mostrar "4 HORAS" */}
+                                              <div>Pase: <b className="text-slate-800 uppercase">{ticket.tipoPase ? ticket.tipoPase.replace('_', ' ') : 'ESTANDAR'}</b></div>
                                               <div>Estado: <b className="text-slate-800">{ticket.horaSalida ? 'Finalizado' : 'En curso'}</b></div>
                                             </div>
 
@@ -741,8 +743,8 @@ export default function ModuloAuditoria({ reservas }) {
         </div>
       </div>
 
-      {/* ESTILOS */}
-      <style jsx>{`
+      {/* ESTILOS (Corregido el Warning de React) */}
+      <style dangerouslySetInnerHTML={{__html: `
         .pulse-debt {
           animation: pulseRed 2s infinite;
         }
@@ -752,7 +754,7 @@ export default function ModuloAuditoria({ reservas }) {
           70% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
           100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
         }
-      `}</style>
+      `}} />
     </div>
   );
 }

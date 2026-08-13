@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
 
-// 🚀 Reemplaza esto con tu PUBLIC KEY si corresponde
-initMercadoPago('APP_USR-2832895f-f4bb-4e38-890f-7d4dd139dc3a', { locale: 'es-AR' });
+// DEFINICIÓN DE LA URL BASE DESDE EL ENTORNO
+const BACKEND_URL = import.meta.env.VITE_APP_BACKEND_URL || 'http://localhost:8080';
+
+// Inicialización de Mercado Pago con tu Public Key de producción/prueba
+initMercadoPago('APP_USR-eff808fa-15a4-4f49-ba40-5c4721933cb0', { locale: 'es-AR' });
 
 export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
   const [patente, setPatente] = useState(usuario?.rol === 'USER' ? usuario.patenteHabitual || '' : '');
@@ -11,7 +14,7 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
   const [turno, setTurno] = useState(usuario?.turnoCursado || 'MANIANA');
   const [monto, setMonto] = useState(500);
   
-  // Estados para manejar el pago digital
+  // Estados para manejar la pasarela de pago digital
   const [loading, setLoading] = useState(false);
   const [preferenceId, setPreferenceId] = useState(null);
 
@@ -19,7 +22,7 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
     '1_HORA': 500,
     '2_HORAS': 900,
     '3_HORAS': 1200,
-    'TURNO_COMPLETO': 1500
+    '4_HORAS': 1500 // 🚀 Actualizado de Turno Completo a 4 Horas
   };
 
   useEffect(() => {
@@ -33,30 +36,68 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
     if (!email) return alert("Por favor, ingresa un email válido para el comprobante.");
     
     const patenteLimpia = patente.replace(/\s+/g, '').toUpperCase();
+    setLoading(true);
 
-    // 🚀 FLUJO 100% DIGITAL: Todo se procesa como TRANSFERENCIA / PAGO DIGITAL
-    onConfirmar(lugar.codigo, patenteLimpia, tipoPase, turno, monto, 'TRANSFERENCIA');
+    try {
+      // 1. Armamos los parámetros para mandarlos en la URL (Query Params)
+      const params = new URLSearchParams({
+        patente: patenteLimpia,
+        tipoPase: tipoPase,
+        turno: turno,
+        monto: monto,
+        email: email
+      });
+
+      // Si el usuario está logueado, sumamos su username a la URL
+      if (usuario?.username) {
+        params.append('username', usuario.username);
+      }
+
+      // 2. Hacemos UN SOLO llamado al endpoint maestro que creamos en Java
+      const responsePref = await fetch(`${BACKEND_URL}/api/mercado-pago/reservar-digital/${lugar.codigo}?${params.toString()}`, {
+        method: 'POST',
+      });
+
+      if (!responsePref.ok) {
+         const errorText = await responsePref.text();
+         throw new Error(errorText || "Error al conectar con la pasarela de pagos.");
+      }
+      
+      // 3. El backend (Java) devuelve el ID de preferencia como un texto puro
+      const preferenceIdResult = await responsePref.text();
+
+      if (preferenceIdResult) {
+        setPreferenceId(preferenceIdResult); // Esto enciende el botón de Mercado Pago
+      } else {
+        alert("No se pudo obtener el identificador de pago de Mercado Pago.");
+      }
+    } catch (error) {
+      console.error("Error en el flujo de reserva y pago:", error);
+      alert(`Hubo un problema al procesar la solicitud: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!lugar) return null;
 
   const opcionesPase = [
-    { value: '1_HORA', label: '1 Hora', precio: 500, icono: (
+    { value: '1_HORA', label: '1 Hora', icono: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     )},
-    { value: '2_HORAS', label: '2 Horas', precio: 900, icono: (
+    { value: '2_HORAS', label: '2 Horas', icono: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     )},
-    { value: '3_HORAS', label: '3 Horas', precio: 1200, icono: (
+    { value: '3_HORAS', label: '3 Horas', icono: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     )},
-    { value: 'TURNO_COMPLETO', label: 'Turno Completo', precio: 1500, icono: (
+    { value: '4_HORAS', label: '4 Horas', icono: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
       </svg>
@@ -104,7 +145,7 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
           </div>
           <button 
             onClick={onClose} 
-            className="w-10 h-10 bg-slate-100 hover:bg-rose-100 text-slate-400 hover:text-rose-600 rounded-full flex items-center justify-center transition-all duration-300 hover:rotate-90 hover:scale-110 shadow-sm group mt-1 flex-shrink-0"
+            className="w-10 h-10 bg-slate-100 hover:bg-rose-100 text-slate-400 hover:text-rose-600 rounded-full flex items-center justify-center transition-all duration-300 hover:rotate-90 hover:scale-110 shadow-sm group mt-1 flex-shrink-0 cursor-pointer"
             title="Cancelar Operación"
           >
             <svg className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,7 +176,7 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
                 maxLength="9"
                 required 
                 readOnly={usuario?.rol === 'USER'}
-                disabled={preferenceId !== null}
+                disabled={preferenceId !== null || loading}
               />
             </div>
             {usuario?.rol === 'USER' && (
@@ -160,7 +201,7 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
                   className="w-full pl-10 pr-10 py-3.5 border-2 border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-slate-50 font-bold text-slate-700 text-sm transition-all duration-300 cursor-pointer shadow-sm appearance-none hover:border-slate-300 disabled:opacity-70 disabled:cursor-not-allowed"
                   value={tipoPase}
                   onChange={(e) => setTipoPase(e.target.value)}
-                  disabled={preferenceId !== null}
+                  disabled={preferenceId !== null || loading}
                 >
                   {opcionesPase.map(opcion => (
                     <option key={opcion.value} value={opcion.value}>
@@ -186,7 +227,7 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
                   className="w-full pl-10 pr-10 py-3.5 border-2 border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-slate-50 font-bold text-slate-700 text-sm transition-all duration-300 cursor-pointer shadow-sm appearance-none hover:border-slate-300 disabled:opacity-70 disabled:cursor-not-allowed"
                   value={turno}
                   onChange={(e) => setTurno(e.target.value)}
-                  disabled={preferenceId !== null}
+                  disabled={preferenceId !== null || loading}
                 >
                   {opcionesTurno.map(opcion => (
                     <option key={opcion.value} value={opcion.value}>
@@ -222,7 +263,7 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                disabled={preferenceId !== null}
+                disabled={preferenceId !== null || loading}
               />
             </div>
           </div>
@@ -231,7 +272,7 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
             <div className="relative z-10">
               <span className="font-bold text-slate-400 uppercase tracking-wider text-xs block mb-1">Total a abonar:</span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-widest bg-sky-500/20 text-sky-300">
-                Pago Digital / Transferencia
+                Pago Digital / Mercado Pago
               </span>
             </div>
             <div className="relative z-10 flex items-center gap-2">
@@ -245,20 +286,24 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
                 type="button"
                 onClick={onClose}
                 disabled={loading}
-                className="w-full sm:w-1/3 py-4 rounded-2xl text-slate-500 font-bold hover:bg-slate-100 hover:text-slate-700 transition-all duration-300 border-2 border-transparent hover:border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-1/3 py-4 rounded-2xl text-slate-500 font-bold hover:bg-slate-100 hover:text-slate-700 transition-all duration-300 border-2 border-transparent hover:border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 Cancelar
               </button>
               <button 
                 type="submit" 
                 disabled={loading}
-                className="w-full sm:w-2/3 py-4 rounded-2xl text-white font-black text-lg transition-all duration-300 active:scale-95 flex items-center justify-center gap-2 relative overflow-hidden group bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 shadow-[0_10px_30px_rgba(14,165,233,0.3)]"
+                className="w-full sm:w-2/3 py-4 rounded-2xl text-white font-black text-lg transition-all duration-300 active:scale-95 flex items-center justify-center gap-2 relative overflow-hidden group bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 shadow-[0_10px_30px_rgba(14,165,233,0.3)] cursor-pointer disabled:opacity-50"
               >
                 <span className="relative z-10 flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  Generar Ticket (Transferencia)
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  )}
+                  {loading ? 'Generando Orden...' : 'Pagar con Mercado Pago'}
                 </span>
               </button>
             </div>
@@ -268,7 +313,7 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
               <button 
                 type="button"
                 onClick={onClose}
-                className="w-full mt-3 py-3 rounded-xl text-slate-500 text-sm font-bold hover:bg-rose-50 hover:text-rose-600 transition-all duration-300"
+                className="w-full mt-3 py-3 rounded-xl text-slate-500 text-sm font-bold hover:bg-rose-50 hover:text-rose-600 transition-all duration-300 cursor-pointer"
               >
                 Cancelar Transacción
               </button>
