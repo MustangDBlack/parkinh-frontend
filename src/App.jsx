@@ -14,9 +14,17 @@ import NotificacionPush from './components/NotificacionPush';
 import ModalHistorial from './components/ModalHistorial';
 import ModalConfirmacion from './components/ModalConfirmacion';
 
-// IMPORTACIÓN DE MERCADO PAGO
+// 🚀 IMPORTACIÓN DE MERCADO PAGO CONTROLADA NATIVAMENTE POR ENTORNO
 import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
-initMercadoPago('APP_USR-7c349921-cc5a-4fdd-822f-1098451bef56', { locale: 'es-AR' });
+
+// Consumimos la Public Key puramente desde los Environments de Dockploy/Vite sin fallbacks estáticos en código
+const MP_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY || '';
+
+if (MP_PUBLIC_KEY) {
+  initMercadoPago(MP_PUBLIC_KEY, { locale: 'es-AR' });
+} else {
+  console.warn("⚠️ Alerta: VITE_MERCADOPAGO_PUBLIC_KEY está vacía o no se encuentra definida en Dockploy.");
+}
 
 function App() {
   const path = window.location.pathname;
@@ -48,7 +56,7 @@ function App() {
   const [miCochera, setMiCochera] = useState(null);
   const [miPatente, setMiPatente] = useState(null);
   
-  // 🚀 NUEVO: Guardamos el objeto completo de la reserva para pasarlo al reloj
+  // Guardamos el objeto completo de la reserva para pasarlo al reloj
   const [reservaActivaUsuario, setReservaActivaUsuario] = useState(null); 
 
   const [cocheras, setCocheras] = useState([]);
@@ -74,7 +82,7 @@ function App() {
     }
   }, [usuario]);
 
-  // 🚀 NUEVO: Escucha y confirmación automática del retorno oficial de Mercado Pago
+  // Escucha y confirmación automática del retorno oficial de Mercado Pago
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const status = urlParams.get('status');
@@ -99,7 +107,7 @@ function App() {
       })
       .catch(err => console.error("Error al confirmar extensión horaria:", err));
     }
-  }, []); // Se ejecuta al montar si viene redirigido
+  }, []); 
 
   // SARRIL: MOTOR DE SINCRONIZACIÓN MULTIDISPOSITIVO REAL-TIME
   useEffect(() => {
@@ -111,16 +119,16 @@ function App() {
       if (miReservaActiva) {
         setMiCochera(miReservaActiva.cochera?.codigo || null);
         setMiPatente(miReservaActiva.patente || null);
-        setReservaActivaUsuario(miReservaActiva); // 🚀 Lo guardamos aquí
+        setReservaActivaUsuario(miReservaActiva); 
       } else {
         setMiCochera(null);
         setMiPatente(null);
-        setReservaActivaUsuario(null); // 🚀 Lo limpiamos aquí
+        setReservaActivaUsuario(null); 
       }
     } else if (!usuario) {
       setMiCochera(null);
       setMiPatente(null);
-      setReservaActivaUsuario(null); // 🚀 Lo limpiamos aquí
+      setReservaActivaUsuario(null); 
     }
   }, [reservas, usuario]);
 
@@ -132,7 +140,7 @@ function App() {
       if (!cocheraExiste) {
         setMiCochera(null);
         setMiPatente(null);
-        setReservaActivaUsuario(null); // 🚀 Lo limpiamos aquí
+        setReservaActivaUsuario(null); 
         setNotificacion({
           tipo: 'info',
           mensaje: 'El lugar que tenías asignado fue eliminado o liberado por la administración. Tu estado ha sido reiniciado.'
@@ -226,7 +234,6 @@ function App() {
       });
   };
 
-  // 🚀 NUEVO: Función para generar la solicitud de pago de Mercado Pago
   const solicitarExtensionDeTiempo = (reservaId, horas) => {
     setNotificacion({ tipo: 'info', mensaje: "Iniciando pasarela de pago seguro..." });
     
@@ -240,7 +247,7 @@ function App() {
     .then(data => {
       setNotificacion(null);
       setPreferenceId(data.preferenceId);
-      window._datosExtensionPendiente = { reservaId, horas }; // Memoria temporal para el mock
+      window._datosExtensionPendiente = { reservaId, horas }; 
     })
     .catch(err => {
       setNotificacion({ tipo: 'peligro', mensaje: err.message });
@@ -400,11 +407,9 @@ function App() {
     }, 1000);
   };
 
-  // 🚀 ACTUALIZADO: Sabe si estás pagando Deuda o Extensión
   const finalizarPagoMercadoPago = () => {
     setPreferenceId(null);
     
-    // CASO 1: Si era una extensión de tiempo
     if (window._datosExtensionPendiente) {
       const { reservaId: extId, horas: extHs } = window._datosExtensionPendiente;
       
@@ -423,7 +428,6 @@ function App() {
       return; 
     }
 
-    // CASO 2: Si era pagar una multa/deuda en el historial
     const reservaId = window._reservaDeudaActiva;
     if (!reservaId) return;
 
@@ -542,8 +546,8 @@ function App() {
             reservas={reservas} 
             miCochera={miCochera}
             miPatente={miPatente}
-            reservaActivaUsuario={reservaActivaUsuario} // 🚀 Pasamos la info al Mapa
-            onExtenderTiempo={solicitarExtensionDeTiempo} // 🚀 Pasamos la función de MP
+            reservaActivaUsuario={reservaActivaUsuario}
+            onExtenderTiempo={solicitarExtensionDeTiempo} 
           />
         )}
         

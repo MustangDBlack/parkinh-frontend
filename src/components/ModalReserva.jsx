@@ -1,11 +1,8 @@
 import { useState, useEffect } from 'react';
-import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
+import { Wallet } from '@mercadopago/sdk-react'; // 🚀 Eliminamos initMercadoPago de aquí
 
 // DEFINICIÓN DE LA URL BASE DESDE EL ENTORNO
 const BACKEND_URL = import.meta.env.VITE_APP_BACKEND_URL || 'http://localhost:8080';
-
-// Inicialización de Mercado Pago con tu Public Key
-initMercadoPago('APP_USR-eff808fa-15a4-4f49-ba40-5c4721933cb0', { locale: 'es-AR' });
 
 export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
   const [patente, setPatente] = useState(usuario?.rol === 'USER' ? usuario.patenteHabitual || '' : '');
@@ -62,7 +59,7 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
          throw new Error(errorText || "Error al conectar con la pasarela de pagos.");
       }
       
-      // 🚀 LA CORRECCIÓN: Leemos la respuesta como JSON en lugar de texto puro
+      // 3. Leemos la respuesta como JSON
       const data = await responsePref.json();
 
       if (data && data.preferenceId) {
