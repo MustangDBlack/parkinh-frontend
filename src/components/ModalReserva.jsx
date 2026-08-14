@@ -4,7 +4,7 @@ import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
 // DEFINICIÓN DE LA URL BASE DESDE EL ENTORNO
 const BACKEND_URL = import.meta.env.VITE_APP_BACKEND_URL || 'http://localhost:8080';
 
-// Inicialización de Mercado Pago con tu Public Key de producción/prueba
+// Inicialización de Mercado Pago con tu Public Key
 initMercadoPago('APP_USR-eff808fa-15a4-4f49-ba40-5c4721933cb0', { locale: 'es-AR' });
 
 export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
@@ -22,7 +22,7 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
     '1_HORA': 500,
     '2_HORAS': 900,
     '3_HORAS': 1200,
-    '4_HORAS': 1500 // 🚀 Actualizado de Turno Completo a 4 Horas
+    '4_HORAS': 1500 
   };
 
   useEffect(() => {
@@ -44,16 +44,15 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
         patente: patenteLimpia,
         tipoPase: tipoPase,
         turno: turno,
-        monto: monto,
+        monto: monto.toString(),
         email: email
       });
 
-      // Si el usuario está logueado, sumamos su username a la URL
       if (usuario?.username) {
         params.append('username', usuario.username);
       }
 
-      // 2. Hacemos UN SOLO llamado al endpoint maestro que creamos en Java
+      // 2. Hacemos el llamado al endpoint maestro en Java
       const responsePref = await fetch(`${BACKEND_URL}/api/mercado-pago/reservar-digital/${lugar.codigo}?${params.toString()}`, {
         method: 'POST',
       });
@@ -63,11 +62,11 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
          throw new Error(errorText || "Error al conectar con la pasarela de pagos.");
       }
       
-      // 3. El backend (Java) devuelve el ID de preferencia como un texto puro
-      const preferenceIdResult = await responsePref.text();
+      // 🚀 LA CORRECCIÓN: Leemos la respuesta como JSON en lugar de texto puro
+      const data = await responsePref.json();
 
-      if (preferenceIdResult) {
-        setPreferenceId(preferenceIdResult); // Esto enciende el botón de Mercado Pago
+      if (data && data.preferenceId) {
+        setPreferenceId(data.preferenceId); // Asigna el ID limpio de la preferencia
       } else {
         alert("No se pudo obtener el identificador de pago de Mercado Pago.");
       }
@@ -247,7 +246,6 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
             </div>
           </div>
 
-          {/* Campo de Email Requerido para Comprobante Digital */}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">Email para el comprobante</label>
             <div className="relative">
