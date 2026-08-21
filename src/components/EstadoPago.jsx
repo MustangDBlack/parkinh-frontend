@@ -54,7 +54,7 @@ export default function EstadoPago({ estado }) {
       sombraBoton: 'shadow-[0_8px_24px_rgba(245,158,11,0.3)] hover:shadow-[0_12px_32px_rgba(245,158,11,0.4)]',
       decoracion: 'rgba(245, 158, 11, 0.05)'
     },
-    fallfailed: { 
+    fallido: { 
       icono: (
         <div className="relative">
           <div className="w-20 h-20 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center shadow-[0_8px_32px_rgba(239,68,68,0.3)] animate-[fadeIn_0.5s_ease-out]">
@@ -76,7 +76,7 @@ export default function EstadoPago({ estado }) {
     }
   };
 
-  const actual = configuracion[estado] || configuracion.fallfailed;
+  const actual = configuracion[estado] || configuracion.fallido;
 
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 ${actual.colorFondo} relative overflow-hidden`}>

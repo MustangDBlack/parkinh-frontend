@@ -396,15 +396,25 @@ function App() {
 
   const procesarPagoDeuda = (reserva) => {
     setMostrarHistorial(false);
-    const fakePreferenceId = `FAKE_PREF_${Date.now()}`;
-    
-    setNotificacion({ tipo: 'info', mensaje: `Generating payment intent for ticket #${reserva.id}...` });
+    setNotificacion({ tipo: 'info', mensaje: 'Generando orden de pago en Mercado Pago...' });
 
-    setTimeout(() => {
-      setNotificacion(null);
-      setPreferenceId(fakePreferenceId);
-      window._reservaDeudaActiva = reserva.id;
-    }, 1000);
+    fetch(`${BACKEND_URL}/api/reservas/${reserva.id}/pagar-deuda`, { method: 'PUT' })
+      .then(async res => {
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(errorText || 'No se pudo generar la orden de pago.');
+        }
+        return res.json();
+      })
+      .then(data => {
+        setNotificacion(null);
+        setPreferenceId(data.preferenceId);
+        window._reservaDeudaActiva = reserva.id;
+      })
+      .catch(err => {
+        setNotificacion({ tipo: 'peligro', mensaje: `Error al generar pago: ${err.message}` });
+        setMostrarHistorial(true);
+      });
   };
 
   const finalizarPagoMercadoPago = () => {
@@ -431,7 +441,7 @@ function App() {
     const reservaId = window._reservaDeudaActiva;
     if (!reservaId) return;
 
-    fetch(`${BACKEND_URL}/api/reservas/${reservaId}/pagar-deuda`, { method: 'PUT' })
+    fetch(`${BACKEND_URL}/api/reservas/${reservaId}/confirmar-pago-deuda`, { method: 'PUT' })
       .then(async res => {
         if (!res.ok) throw new Error("El servidor no pudo procesar la cancelación de la deuda.");
         return res.json();
