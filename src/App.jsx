@@ -14,17 +14,15 @@ import NotificacionPush from './components/NotificacionPush';
 import ModalHistorial from './components/ModalHistorial';
 import ModalConfirmacion from './components/ModalConfirmacion';
 
-// 🚀 IMPORTACIÓN DE MERCADO PAGO CONTROLADA NATIVAMENTE POR ENTORNO
-import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
+// 🛑 MERCADO PAGO OCULTO PARA LA PRESENTACIÓN 
+// import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
 
-// Consumimos la Public Key puramente desde los Environments de Dockploy/Vite sin fallbacks estáticos en código
-const MP_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY || '';
-
-if (MP_PUBLIC_KEY) {
-  initMercadoPago(MP_PUBLIC_KEY, { locale: 'es-AR' });
-} else {
-  console.warn("⚠️ Alerta: VITE_MERCADOPAGO_PUBLIC_KEY está vacía o no se encuentra definida en Dockploy.");
-}
+// const MP_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY || '';
+// if (MP_PUBLIC_KEY) {
+//   initMercadoPago(MP_PUBLIC_KEY, { locale: 'es-AR' });
+// } else {
+//   console.warn("⚠️ Alerta: VITE_MERCADOPAGO_PUBLIC_KEY está vacía o no se encuentra definida en Dockploy.");
+// }
 
 function App() {
   const path = window.location.pathname;
@@ -396,7 +394,7 @@ function App() {
 
   const procesarPagoDeuda = (reserva) => {
     setMostrarHistorial(false);
-    setNotificacion({ tipo: 'info', mensaje: 'Generando orden de pago en Mercado Pago...' });
+    setNotificacion({ tipo: 'info', mensaje: 'Generando orden de pago segura...' });
 
     fetch(`${BACKEND_URL}/api/reservas/${reserva.id}/pagar-deuda`, { method: 'PUT' })
       .then(async res => {
@@ -586,23 +584,33 @@ function App() {
         />
       )}
 
+      {/* 🚀 MODAL DE SIMULACIÓN PARA LA PRESENTACIÓN */}
       {preferenceId && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center animate-[fadeIn_0.3s_ease-out]">
             <h3 className="text-xl font-black text-slate-800 mb-2">Finalizar Pago</h3>
-            <p className="text-slate-500 mb-6 font-medium">Paga de forma segura con Mercado Pago</p>
+            <p className="text-slate-500 mb-6 font-medium">Procesamiento de pago digital</p>
             
-            <div className="min-h-[100px] flex items-center justify-center">
-              <Wallet initialization={{ preferenceId: preferenceId }} customization={{ texts: { valueProp: 'smart_option' } }} />
-            </div>
-            
-            <div className="mt-6 flex flex-col gap-2">
+            <div className="min-h-[100px] flex flex-col items-center justify-center w-full gap-4">
+              
+              {/* 🛑 COMPONENTE REAL DE MERCADO PAGO OCULTO 
+              <Wallet initialization={{ preferenceId: preferenceId }} customization={{ texts: { valueProp: 'smart_option' } }} /> 
+              */}
+
+              {/* 🚀 BOTÓN ELEGANTE PARA SIMULAR EL PAGO */}
               <button 
                 onClick={finalizarPagoMercadoPago} 
-                className="w-full py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold rounded-lg transition-colors text-sm"
+                className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
               >
-                [Simular Pago Exitoso]
+                <svg className="w-5 h-5 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Simular Pago Exitoso
               </button>
+
+            </div>
+            
+            <div className="mt-4 flex flex-col gap-2">
               <button 
                 onClick={() => { 
                   setPreferenceId(null); 
