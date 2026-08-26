@@ -1,8 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Wallet } from '@mercadopago/sdk-react'; // 🚀 Eliminamos initMercadoPago de aquí
-
-// DEFINICIÓN DE LA URL BASE DESDE EL ENTORNO
-const BACKEND_URL = import.meta.env.VITE_APP_BACKEND_URL || 'http://localhost:8080';
 
 export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
   const [patente, setPatente] = useState(usuario?.rol === 'USER' ? usuario.patenteHabitual || '' : '');
@@ -10,10 +6,6 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
   const [tipoPase, setTipoPase] = useState('1_HORA');
   const [turno, setTurno] = useState(usuario?.turnoCursado || 'MANIANA');
   const [monto, setMonto] = useState(500);
-  
-  // Estados para manejar la pasarela de pago digital
-  const [loading, setLoading] = useState(false);
-  const [preferenceId, setPreferenceId] = useState(null);
 
   const precios = {
     '1_HORA': 500,
@@ -24,55 +16,17 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
 
   useEffect(() => {
     setMonto(precios[tipoPase]);
-    setPreferenceId(null);
   }, [tipoPase]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (!patente) return alert("Por favor, ingresa una patente válida.");
     if (!email) return alert("Por favor, ingresa un email válido para el comprobante.");
     
     const patenteLimpia = patente.replace(/\s+/g, '').toUpperCase();
-    setLoading(true);
 
-    try {
-      // 1. Armamos los parámetros para mandarlos en la URL (Query Params)
-      const params = new URLSearchParams({
-        patente: patenteLimpia,
-        tipoPase: tipoPase,
-        turno: turno,
-        monto: monto.toString(),
-        email: email
-      });
-
-      if (usuario?.username) {
-        params.append('username', usuario.username);
-      }
-
-      // 2. Hacemos el llamado al endpoint maestro en Java
-      const responsePref = await fetch(`${BACKEND_URL}/api/mercado-pago/reservar-digital/${lugar.codigo}?${params.toString()}`, {
-        method: 'POST',
-      });
-
-      if (!responsePref.ok) {
-         const errorText = await responsePref.text();
-         throw new Error(errorText || "Error al conectar con la pasarela de pagos.");
-      }
-      
-      // 3. Leemos la respuesta como JSON
-      const data = await responsePref.json();
-
-      if (data && data.preferenceId) {
-        setPreferenceId(data.preferenceId); // Asigna el ID limpio de la preferencia
-      } else {
-        alert("No se pudo obtener el identificador de pago de Mercado Pago.");
-      }
-    } catch (error) {
-      console.error("Error en el flujo de reserva y pago:", error);
-      alert(`Hubo un problema al procesar la solicitud: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
+    // Disparamos la función que abre el simulador central en App.jsx
+    onConfirmar(lugar.codigo, patenteLimpia, tipoPase, turno, monto);
   };
 
   if (!lugar) return null;
@@ -121,7 +75,7 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-slate-900/70 via-slate-800/60 to-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 z-[100] animate-[fadeIn_0.3s_ease-out]">
       
-      <div className="bg-white/95 backdrop-blur-xl p-6 sm:p-8 rounded-[2.5rem] shadow-[0_25px_80px_rgba(0,0,0,0.4)] w-full max-w-md max-h-[95vh] overflow-y-auto relative border border-white/50 animate-[fadeIn_0.5s_ease-out] scrollbar-thin scrollbar-thumb-slate-300">
+      <div className="bg-white/95 backdrop-blur-xl p-6 sm:p-8 rounded-[2.5rem] shadow-[0_25px_80px_rgba(0,0,0,0.4)] w-full max-w-md max-h-[95vh] overflow-y-auto relative border border-white/50 animate-[fadeIn_0.5s_ease-out]">
         
         {/* Decoración superior */}
         <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-600 via-blue-500 to-sky-400"></div>
@@ -172,7 +126,6 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
                 maxLength="9"
                 required 
                 readOnly={usuario?.rol === 'USER'}
-                disabled={preferenceId !== null || loading}
               />
             </div>
             {usuario?.rol === 'USER' && (
@@ -194,10 +147,9 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">Tiempo de Estadía</label>
               <div className="relative">
                 <select 
-                  className="w-full pl-10 pr-10 py-3.5 border-2 border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-slate-50 font-bold text-slate-700 text-sm transition-all duration-300 cursor-pointer shadow-sm appearance-none hover:border-slate-300 disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="w-full pl-10 pr-10 py-3.5 border-2 border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-slate-50 font-bold text-slate-700 text-sm transition-all duration-300 cursor-pointer shadow-sm appearance-none hover:border-slate-300"
                   value={tipoPase}
                   onChange={(e) => setTipoPase(e.target.value)}
-                  disabled={preferenceId !== null || loading}
                 >
                   {opcionesPase.map(opcion => (
                     <option key={opcion.value} value={opcion.value}>
@@ -220,10 +172,9 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">Turno Asignado</label>
               <div className="relative">
                 <select 
-                  className="w-full pl-10 pr-10 py-3.5 border-2 border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-slate-50 font-bold text-slate-700 text-sm transition-all duration-300 cursor-pointer shadow-sm appearance-none hover:border-slate-300 disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="w-full pl-10 pr-10 py-3.5 border-2 border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-slate-50 font-bold text-slate-700 text-sm transition-all duration-300 cursor-pointer shadow-sm appearance-none hover:border-slate-300"
                   value={turno}
                   onChange={(e) => setTurno(e.target.value)}
-                  disabled={preferenceId !== null || loading}
                 >
                   {opcionesTurno.map(opcion => (
                     <option key={opcion.value} value={opcion.value}>
@@ -253,67 +204,45 @@ export default function ModalReserva({ lugar, usuario, onClose, onConfirmar }) {
               </div>
               <input 
                 type="email" 
-                className="w-full pl-12 pr-5 py-3.5 border-2 border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 bg-white font-bold text-slate-700 text-sm transition-all duration-300 shadow-sm hover:border-slate-300 disabled:opacity-70 disabled:cursor-not-allowed"
+                className="w-full pl-12 pr-5 py-3.5 border-2 border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 bg-white font-bold text-slate-700 text-sm transition-all duration-300 shadow-sm hover:border-slate-300"
                 placeholder="ejemplo@correo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                disabled={preferenceId !== null || loading}
               />
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 p-6 rounded-2xl mt-2 flex justify-between items-center border border-slate-700 shadow-[0_10px_30px_rgba(0,0,0,0.3)] relative overflow-hidden group">
-            <div className="relative z-10">
+          <div className="bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 p-6 rounded-2xl mt-2 flex justify-between items-center border border-slate-700 shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
+            <div>
               <span className="font-bold text-slate-400 uppercase tracking-wider text-xs block mb-1">Total a abonar:</span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-widest bg-sky-500/20 text-sky-300">
-                Pago Digital / Mercado Pago
+                Pasarela del Sistema
               </span>
             </div>
-            <div className="relative z-10 flex items-center gap-2">
+            <div>
               <span className="text-4xl font-black text-white tracking-tight">${monto.toLocaleString('es-AR')}</span>
             </div>
           </div>
 
-          {!preferenceId ? (
-            <div className="flex flex-col sm:flex-row gap-3 mt-2">
-              <button 
-                type="button"
-                onClick={onClose}
-                disabled={loading}
-                className="w-full sm:w-1/3 py-4 rounded-2xl text-slate-500 font-bold hover:bg-slate-100 hover:text-slate-700 transition-all duration-300 border-2 border-transparent hover:border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button 
-                type="submit" 
-                disabled={loading}
-                className="w-full sm:w-2/3 py-4 rounded-2xl text-white font-black text-lg transition-all duration-300 active:scale-95 flex items-center justify-center gap-2 relative overflow-hidden group bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 shadow-[0_10px_30px_rgba(14,165,233,0.3)] cursor-pointer disabled:opacity-50"
-              >
-                <span className="relative z-10 flex items-center gap-2">
-                  {loading ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  )}
-                  {loading ? 'Generando Orden...' : 'Pagar con Mercado Pago'}
-                </span>
-              </button>
-            </div>
-          ) : (
-            <div className="mt-2 w-full animate-[fadeIn_0.5s_ease-out]">
-              <Wallet initialization={{ preferenceId: preferenceId }} customization={{ texts: { valueProp: 'smart_option' } }} />
-              <button 
-                type="button"
-                onClick={onClose}
-                className="w-full mt-3 py-3 rounded-xl text-slate-500 text-sm font-bold hover:bg-rose-50 hover:text-rose-600 transition-all duration-300 cursor-pointer"
-              >
-                Cancelar Transacción
-              </button>
-            </div>
-          )}
+          <div className="flex flex-col sm:flex-row gap-3 mt-2">
+            <button 
+              type="button"
+              onClick={onClose}
+              className="w-full sm:w-1/3 py-4 rounded-2xl text-slate-500 font-bold hover:bg-slate-100 hover:text-slate-700 transition-all duration-300 border-2 border-transparent hover:border-slate-200 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button 
+              type="submit" 
+              className="w-full sm:w-2/3 py-4 rounded-2xl text-white font-black text-lg transition-all duration-300 active:scale-95 flex items-center justify-center gap-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 shadow-[0_10px_30px_rgba(14,165,233,0.3)] cursor-pointer"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              Simular Pago
+            </button>
+          </div>
 
         </form>
       </div>

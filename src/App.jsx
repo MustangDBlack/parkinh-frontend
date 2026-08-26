@@ -13,16 +13,7 @@ import ModalFicha from './components/ModalFicha';
 import NotificacionPush from './components/NotificacionPush';
 import ModalHistorial from './components/ModalHistorial';
 import ModalConfirmacion from './components/ModalConfirmacion';
-
-// 🛑 MERCADO PAGO OCULTO PARA LA PRESENTACIÓN 
-// import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
-
-// const MP_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY || '';
-// if (MP_PUBLIC_KEY) {
-//   initMercadoPago(MP_PUBLIC_KEY, { locale: 'es-AR' });
-// } else {
-//   console.warn("⚠️ Alerta: VITE_MERCADOPAGO_PUBLIC_KEY está vacía o no se encuentra definida en Dockploy.");
-// }
+import ModalAyuda from './components/ModalAyuda';
 
 function App() {
   const path = window.location.pathname;
@@ -45,18 +36,30 @@ function App() {
   const [errorLogin, setErrorLogin] = useState('');
   const [cargandoApp, setCargandoApp] = useState(true);
 
+  const [mostrarModalAyuda, setMostrarModalAyuda] = useState(false);
+
   useEffect(() => {
     const timer = setTimeout(() => setCargandoApp(false), 800);
     return () => clearTimeout(timer);
   }, []);
 
-  // --- ESTADOS DINÁMICOS EN BASE A LA BASE DE DATOS ---
+  useEffect(() => {
+    if (usuario) {
+      const yaVioAyuda = sessionStorage.getItem('parkinh_ayuda_vista');
+      if (!yaVioAyuda) {
+        setMostrarModalAyuda(true);
+      }
+    }
+  }, [usuario]);
+
+  const cerrarModalAyuda = () => {
+    setMostrarModalAyuda(false);
+    sessionStorage.setItem('parkinh_ayuda_vista', 'true');
+  };
+
   const [miCochera, setMiCochera] = useState(null);
   const [miPatente, setMiPatente] = useState(null);
-  
-  // Guardamos el objeto completo de la reserva para pasarlo al reloj
   const [reservaActivaUsuario, setReservaActivaUsuario] = useState(null); 
-
   const [cocheras, setCocheras] = useState([]);
   const [nuevoCodigo, setNuevoCodigo] = useState('');
   
@@ -70,7 +73,11 @@ function App() {
   const [notificacion, setNotificacion] = useState(null);
   const [mostrarHistorial, setMostrarHistorial] = useState(false);
 
-  const memoriaNotificaciones = useRef({ reservaId: null, avisoInicio: false, aviso15: false, expirado: false });
+  const [estadoSimulador, setEstadoSimulador] = useState('inicio'); 
+  const [ticketTemporal, setTicketTemporal] = useState(null);
+
+  // 🚀 MEJORA: Agregamos "horaFin" a la memoria para detectar extensiones de tiempo
+  const memoriaNotificaciones = useRef({ reservaId: null, horaFin: null, avisoInicio: false, aviso15: false, expirado: false });
   const [confirmacion, setConfirmacion] = useState({ isOpen: false, titulo: '', mensaje: '', onConfirmar: null, tipo: 'peligro' });
 
   useEffect(() => {
@@ -80,34 +87,6 @@ function App() {
     }
   }, [usuario]);
 
-  // Escucha y confirmación automática del retorno oficial de Mercado Pago
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const status = urlParams.get('status');
-    const rId = urlParams.get('reservaId');
-    const hs = urlParams.get('horas');
-
-    if ((status === 'approved' || window.location.pathname === '/pago-exitoso') && rId && hs) {
-      fetch(`${BACKEND_URL}/api/reservas/${rId}/confirmar-extension?horas=${hs}`, {
-        method: 'PUT'
-      })
-      .then(res => {
-        if (!res.ok) throw new Error("No se pudo impactar la prórroga.");
-        return res.json();
-      })
-      .then(() => {
-        window.history.replaceState({}, document.title, "/");
-        setNotificacion({
-          tipo: 'info',
-          mensaje: `✅ ¡Pago aprobado! Se añadieron +${hs} hora(s) correctamente a tu cochera.`
-        });
-        cargarReservas();
-      })
-      .catch(err => console.error("Error al confirmar extensión horaria:", err));
-    }
-  }, []); 
-
-  // SARRIL: MOTOR DE SINCRONIZACIÓN MULTIDISPOSITIVO REAL-TIME
   useEffect(() => {
     if (usuario && usuario.rol === 'USER' && reservas.length > 0) {
       const miReservaActiva = [...reservas]
@@ -130,24 +109,18 @@ function App() {
     }
   }, [reservas, usuario]);
 
-  // VALIDACIÓN DE INTEGRIDAD DESDE EL BACKEND
   useEffect(() => {
     if (usuario?.rol === 'USER' && miCochera && cocheras.length > 0) {
       const cocheraExiste = cocheras.find(c => c.codigo === miCochera);
-      
       if (!cocheraExiste) {
         setMiCochera(null);
         setMiPatente(null);
         setReservaActivaUsuario(null); 
-        setNotificacion({
-          tipo: 'info',
-          mensaje: 'El lugar que tenías asignado fue eliminado o liberado por la administración. Tu estado ha sido reiniciado.'
-        });
+        setNotificacion({ tipo: 'info', mensaje: 'El lugar fue liberado por la administración.' });
       }
     }
   }, [cocheras, miCochera, usuario]);
 
-  // MOTOR DEL TIEMPO BLINDADO
   useEffect(() => {
     if (usuario?.rol !== 'USER' || !miCochera || reservas.length === 0) return;
 
@@ -155,15 +128,17 @@ function App() {
       .sort((a, b) => b.id - a.id) 
       .find(r => r.cochera?.codigo === miCochera && !r.horaSalida && r.usuario?.username === usuario.username);
     
-    if (!miReservaActiva || !miReservaActiva.horaFinEsperada) {
-      memoriaNotificaciones.current = { reservaId: null, avisoInicio: false, aviso15: false, expirado: false };
-      return;
-    }
+    if (!miReservaActiva || !miReservaActiva.horaFinEsperada) return;
 
-    if (memoriaNotificaciones.current.reservaId !== miReservaActiva.id) {
+    // 🚀 MEJORA: Si la reserva es nueva o la HORA FIN cambió (porque compró más tiempo), reiniciamos las alarmas
+    if (
+      memoriaNotificaciones.current.reservaId !== miReservaActiva.id ||
+      memoriaNotificaciones.current.horaFin !== miReservaActiva.horaFinEsperada
+    ) {
       memoriaNotificaciones.current = { 
         reservaId: miReservaActiva.id, 
-        avisoInicio: false,
+        horaFin: miReservaActiva.horaFinEsperada, 
+        avisoInicio: false, 
         aviso15: false, 
         expirado: false 
       };
@@ -174,29 +149,20 @@ function App() {
       const horaFin = new Date(miReservaActiva.horaFinEsperada);
       const diferenciaMinutos = (horaFin - ahora) / (1000 * 60);
 
-      if (diferenciaMinutos < -1440) return;
+      if (diferenciaMinutos < -1440) return; // Si es viejísima ignorar
 
       if (diferenciaMinutos > 15 && !memoriaNotificaciones.current.avisoInicio) {
         const horaFormateada = horaFin.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        setNotificacion({
-          tipo: 'info',
-          mensaje: `🏍️ ¡Reserva Activa! Tu lugar vence a las ${horaFormateada}. Recuerda retirarte a tiempo para evitar multas.`
-        });
+        setNotificacion({ tipo: 'info', mensaje: `🏍️ Tu lugar vence a las ${horaFormateada}.` });
         memoriaNotificaciones.current.avisoInicio = true;
       }
       else if (diferenciaMinutos <= 15 && diferenciaMinutos > 0 && !memoriaNotificaciones.current.aviso15) {
-        setNotificacion({
-          tipo: 'alerta',
-          mensaje: '⏱️ Tu tiempo de estacionamiento vence en menos de 15 minutos. ¡Evita multas!'
-        });
+        setNotificacion({ tipo: 'alerta', mensaje: '⏱️ Tu tiempo vence en menos de 15 minutos.' });
         memoriaNotificaciones.current.avisoInicio = true; 
         memoriaNotificaciones.current.aviso15 = true;
       } 
       else if (diferenciaMinutos <= 0 && diferenciaMinutos > -1440 && !memoriaNotificaciones.current.expirado) {
-        setNotificacion({
-          tipo: 'peligro',
-          mensaje: '⚠️ ¡Tu tiempo ha expirado! A partir de este momento se aplicará un recargo en tu ticket final.'
-        });
+        setNotificacion({ tipo: 'peligro', mensaje: '⚠️ ¡Tu tiempo ha expirado! Se está aplicando recargo por multa.' });
         memoriaNotificaciones.current.avisoInicio = true;
         memoriaNotificaciones.current.aviso15 = true;
         memoriaNotificaciones.current.expirado = true; 
@@ -208,48 +174,22 @@ function App() {
 
   const cargarCocheras = () => {
     fetch(`${BACKEND_URL}/api/cocheras`)
-      .then(res => {
-        if (!res.ok) throw new Error("Error en servidor al cargar cocheras.");
-        return res.json();
-      })
+      .then(res => res.ok ? res.json() : [])
       .then(data => setCocheras(Array.isArray(data) ? data : []))
-      .catch(err => {
-        console.error("Error al cargar cocheras:", err);
-        setCocheras([]);
-      });
+      .catch(() => setCocheras([]));
   };
 
   const cargarReservas = () => {
     fetch(`${BACKEND_URL}/api/reservas`)
-      .then(res => {
-        if (!res.ok) throw new Error("Error del servidor al cargar reservas.");
-        return res.json();
-      })
+      .then(res => res.ok ? res.json() : [])
       .then(data => setReservas(Array.isArray(data) ? data : []))
-      .catch(err => {
-        console.error("Error al cargar reservas:", err);
-        setReservas([]); 
-      });
+      .catch(() => setReservas([]));
   };
 
   const solicitarExtensionDeTiempo = (reservaId, horas) => {
-    setNotificacion({ tipo: 'info', mensaje: "Iniciando pasarela de pago seguro..." });
-    
-    fetch(`${BACKEND_URL}/api/reservas/${reservaId}/solicitar-extension?horas=${horas}`, {
-      method: 'POST'
-    })
-    .then(async res => {
-      if (!res.ok) throw new Error("No se pudo generar la orden en Mercado Pago.");
-      return res.json();
-    })
-    .then(data => {
-      setNotificacion(null);
-      setPreferenceId(data.preferenceId);
-      window._datosExtensionPendiente = { reservaId, horas }; 
-    })
-    .catch(err => {
-      setNotificacion({ tipo: 'peligro', mensaje: err.message });
-    });
+    setEstadoSimulador('inicio');
+    setPreferenceId("simulador-" + Math.random());
+    window._datosExtensionPendiente = { reservaId, horas }; 
   };
 
   const handleLogin = (user, pass) => {
@@ -260,12 +200,14 @@ function App() {
       body: JSON.stringify({ username: user, password: pass })
     })
     .then(async res => {
-      if (!res.ok) throw new Error("Credenciales incorrectas o error de conexión.");
+      if (!res.ok) throw new Error("Credenciales incorrectas.");
       return res.json();
     })
     .then(data => {
       setUsuario(data);
       localStorage.setItem('usuario_parquimetro', JSON.stringify(data));
+      setMostrarModalAyuda(true);
+      sessionStorage.removeItem('parkinh_ayuda_vista');
     })
     .catch(err => setErrorLogin(err.message));
   };
@@ -273,7 +215,6 @@ function App() {
   const handleLogout = () => {
     setUsuario(null);
     localStorage.removeItem('usuario_parquimetro');
-    
     setVista('mapa');
     setTicketModal(null);
     setLugarParaReservar(null);
@@ -281,39 +222,30 @@ function App() {
     setPreferenceId(null);
     setNotificacion(null);
     setMostrarHistorial(false); 
+    setMostrarModalAyuda(false);
+    sessionStorage.removeItem('parkinh_ayuda_vista');
   };
 
   const liberarCochera = (codigo) => {
     fetch(`${BACKEND_URL}/api/cocheras/${codigo}/salida`, { method: 'POST' })
     .then(async res => {
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Error ${res.status}: El servidor rechazó la operación.`);
-      }
+      if (!res.ok) throw new Error(`El servidor rechazó la operación.`);
       return res.json();
     })
     .then(data => {
       cargarCocheras();
       cargarReservas();
       setLugarOcupadoInfo(null); 
-
       if (data && data.estadoPago === 'PENDIENTE') {
-        setNotificacion({
-          tipo: 'peligro',
-          mensaje: `⚠️ Atención: Has generado una multa por tiempo extra. Monto a pagar: $${data.montoTotal}. Debes saldarla en tu Historial para volver a usar el sistema.`
-        });
+        setNotificacion({ tipo: 'peligro', mensaje: `⚠️ Generaste una multa de $${data.montoTotal}. Págala en tu Historial.` });
       }
-
       if (data && data.cochera) {
         setTicketModal(data);
       } else {
         setNotificacion({ tipo: 'info', mensaje: "Lugar liberado correctamente." });
       }
     })
-    .catch(err => {
-      console.error(err);
-      setNotificacion({ tipo: 'peligro', mensaje: `Operación fallida: ${err.message}` });
-    });
+    .catch(err => setNotificacion({ tipo: 'peligro', mensaje: err.message }));
   };
 
   const manejarClicCochera = (lugar) => {
@@ -321,7 +253,7 @@ function App() {
       setConfirmacion({
         isOpen: true,
         titulo: '¿Liberar tu lugar?',
-        mensaje: `¿Estás seguro de liberar tu cajón ${lugar.codigo} y ver tu comprobante de salida (incluyendo multas si aplican)?`,
+        mensaje: `¿Estás seguro de liberar tu cajón ${lugar.codigo} y ver tu comprobante de salida?`,
         tipo: 'info',
         onConfirmar: () => {
           liberarCochera(lugar.codigo);
@@ -333,23 +265,30 @@ function App() {
 
     if (!lugar.ocupado) {
       if (usuario.rol === 'ADMIN') {
-        setNotificacion({
-          tipo: 'info',
-          mensaje: 'Modo Administrador: No tienes permisos para asignar lugares. Esta función es exclusiva para Usuarios y Guardias.'
-        });
+        setNotificacion({ tipo: 'info', mensaje: 'Modo Administrador: No tienes permisos para asignar lugares.' });
         return;
       }
+      
+      if (usuario.rol === 'USER') {
+        if (miCochera) {
+          setNotificacion({ tipo: 'alerta', mensaje: `Ya tienes reservado el cajón ${miCochera}.` });
+          return;
+        }
 
-      if (usuario.rol === 'USER' && miCochera) {
-        setNotificacion({
-          tipo: 'alerta',
-          mensaje: `Ya tienes reservado el cajón ${miCochera}. Solo se permite una reserva por usuario.`
-        });
-        return;
+        // 🚀 MEJORA: Validar si el usuario tiene deudas pendientes antes de reservar
+        const tieneDeuda = reservas.some(r => r.estadoPago === 'PENDIENTE' && r.usuario?.username === usuario.username);
+        
+        if (tieneDeuda) {
+          setNotificacion({ 
+            tipo: 'peligro', 
+            mensaje: '⚠️ Operación denegada: Tienes multas pendientes. Ve a "Tickets" para regularizar tu situación antes de estacionar.' 
+          });
+          return; // Corta la ejecución, no lo deja abrir el modal de reserva
+        }
       }
+      
       setLugarParaReservar(lugar);
-    } 
-    else {
+    } else {
       if (usuario.rol === 'USER') {
         setNotificacion({ tipo: 'info', mensaje: 'Este lugar está ocupado por otro vehículo.' });
       } else {
@@ -360,99 +299,97 @@ function App() {
   };
 
   const procesarReserva = (codigo, patente, tipoPase, turno, monto) => {
-    setTimeout(() => {
-      const params = new URLSearchParams({ 
-        patente, tipoPase, turno, monto, username: usuario.username 
-      }).toString();
-
-      fetch(`${BACKEND_URL}/api/cocheras/${codigo}/entrada?${params}`, { method: 'POST' })
-      .then(async res => {
-        if (!res.ok) {
-           const errorData = await res.json().catch(() => ({ message: 'Error de red o servidor' }));
-           if (res.status === 403) throw new Error("🚫 " + errorData.message);
-           throw new Error(errorData.message || 'No se pudo completar la reserva.');
-        }
-        return res.json(); 
-      })
-      .then(ticket => {
-        setLugarParaReservar(null); 
-        cargarCocheras();
-        cargarReservas();
-        setTicketModal(ticket); 
-      })
-      .catch(err => {
-        setLugarParaReservar(null);
-        if (err.message.includes("🚫")) {
-           setNotificacion({ tipo: 'peligro', mensaje: err.message });
-           setMostrarHistorial(true); 
-        } else {
-           setNotificacion({ tipo: 'alerta', mensaje: err.message });
-        }
-      });
-    }, 500); 
+    setLugarParaReservar(null); 
+    setEstadoSimulador('inicio');
+    setPreferenceId("simulador-" + Math.random());
+    window._datosReservaInicial = { codigo, patente, tipoPase, turno, monto };
   };
 
   const procesarPagoDeuda = (reserva) => {
     setMostrarHistorial(false);
-    setNotificacion({ tipo: 'info', mensaje: 'Generando orden de pago segura...' });
-
-    fetch(`${BACKEND_URL}/api/reservas/${reserva.id}/pagar-deuda`, { method: 'PUT' })
-      .then(async res => {
-        if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(errorText || 'No se pudo generar la orden de pago.');
-        }
-        return res.json();
-      })
-      .then(data => {
-        setNotificacion(null);
-        setPreferenceId(data.preferenceId);
-        window._reservaDeudaActiva = reserva.id;
-      })
-      .catch(err => {
-        setNotificacion({ tipo: 'peligro', mensaje: `Error al generar pago: ${err.message}` });
-        setMostrarHistorial(true);
-      });
+    setEstadoSimulador('inicio');
+    setPreferenceId("simulador-" + Math.random());
+    window._reservaDeudaActiva = reserva.id;
   };
 
-  const finalizarPagoMercadoPago = () => {
-    setPreferenceId(null);
+  const ejecutarSimulacionPago = () => {
+    setEstadoSimulador('cargando');
     
+    if (window._datosReservaInicial) {
+      const { codigo, patente, tipoPase, turno, monto } = window._datosReservaInicial;
+      const params = new URLSearchParams({ patente, tipoPase, turno, monto, username: usuario.username }).toString();
+
+      fetch(`${BACKEND_URL}/api/cocheras/${codigo}/entrada?${params}`, { method: 'POST' })
+      .then(async res => {
+        if (!res.ok) throw new Error("No se pudo completar la reserva.");
+        return res.json(); 
+      })
+      .then(ticket => {
+        cargarCocheras(); 
+        cargarReservas();
+        setTicketTemporal(ticket); 
+        setEstadoSimulador('exitoso'); 
+        delete window._datosReservaInicial;
+      })
+      .catch(err => {
+        setNotificacion({ tipo: 'peligro', mensaje: err.message });
+        setPreferenceId(null);
+      });
+      return;
+    }
+
     if (window._datosExtensionPendiente) {
       const { reservaId: extId, horas: extHs } = window._datosExtensionPendiente;
-      
       fetch(`${BACKEND_URL}/api/reservas/${extId}/confirmar-extension?horas=${extHs}`, { method: 'PUT' })
         .then(async res => {
           if (!res.ok) throw new Error("No se pudo impactar la prórroga de tiempo.");
           return res.json();
         })
         .then(() => {
-          setNotificacion({ tipo: 'info', mensaje: `✅ ¡Tiempo extendido! Se agregaron +${extHs} hora(s) a tu estadía.` });
-          delete window._datosExtensionPendiente;
           cargarReservas();
+          setEstadoSimulador('exitoso');
+          delete window._datosExtensionPendiente;
         })
-        .catch(err => setNotificacion({ tipo: 'peligro', mensaje: err.message }));
-      
+        .catch(err => {
+          setNotificacion({ tipo: 'peligro', mensaje: err.message });
+          setPreferenceId(null);
+        });
       return; 
     }
 
     const reservaId = window._reservaDeudaActiva;
-    if (!reservaId) return;
+    if (reservaId) {
+      fetch(`${BACKEND_URL}/api/reservas/${reservaId}/confirmar-pago-deuda`, { method: 'PUT' })
+        .then(async res => {
+          if (!res.ok) throw new Error("El servidor no pudo cancelar la deuda.");
+          return res.json();
+        })
+        .then(() => {
+          cargarReservas(); 
+          setEstadoSimulador('exitoso');
+          window._abrirHistorialPostPago = true; 
+          delete window._reservaDeudaActiva;
+        })
+        .catch(err => {
+          setNotificacion({ tipo: 'peligro', mensaje: err.message });
+          setPreferenceId(null);
+        });
+    }
+  };
 
-    fetch(`${BACKEND_URL}/api/reservas/${reservaId}/confirmar-pago-deuda`, { method: 'PUT' })
-      .then(async res => {
-        if (!res.ok) throw new Error("El servidor no pudo procesar la cancelación de la deuda.");
-        return res.json();
-      })
-      .then(() => {
-        setNotificacion({ tipo: 'info', mensaje: "✅ ¡Deuda cancelada exitosamente! Tu cuenta ha sido habilitada." });
-        delete window._reservaDeudaActiva;
-        cargarReservas(); 
-        setMostrarHistorial(true); 
-      })
-      .catch(err => {
-        setNotificacion({ tipo: 'peligro', mensaje: "❌ Hubo un error al registrar tu pago: " + err.message });
-      });
+  const cerrarSimuladorYActualizar = () => {
+    setPreferenceId(null);
+    setEstadoSimulador('inicio');
+    
+    if (ticketTemporal) {
+      setTicketModal(ticketTemporal);
+      setTicketTemporal(null);
+    }
+    
+    if (window._abrirHistorialPostPago) {
+      setMostrarHistorial(true);
+      delete window._abrirHistorialPostPago;
+    }
   };
 
   const agregarCochera = (e) => {
@@ -477,14 +414,14 @@ function App() {
     setConfirmacion({
       isOpen: true,
       titulo: 'Eliminar Cochera',
-      mensaje: `¿Estás seguro de eliminar definitivamente el cajón ${codigo}? Esta acción no se puede deshacer.`,
+      mensaje: `¿Estás seguro de eliminar el cajón ${codigo}?`,
       tipo: 'peligro',
       onConfirmar: () => {
         fetch(`${BACKEND_URL}/api/cocheras/${codigo}`, { method: 'DELETE' })
         .then(async res => {
           if (!res.ok) throw new Error("No se pudo eliminar el lugar.");
           cargarCocheras();
-          setNotificacion({ tipo: 'info', mensaje: `Cochera ${codigo} eliminada correctamente.` });
+          setNotificacion({ tipo: 'info', mensaje: `Cochera ${codigo} eliminada.` });
           setConfirmacion({ ...confirmacion, isOpen: false });
         })
         .catch(err => {
@@ -499,13 +436,7 @@ function App() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-slate-50 flex items-center justify-center">
         <div className="text-center space-y-4 animate-[fadeIn_0.5s_ease-out]">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-700 to-blue-600 text-white rounded-3xl flex items-center justify-center font-black text-3xl shadow-[0_10px_40px_rgba(37,99,235,0.3)] mx-auto animate-[pulse_2s_infinite]">
-            NH
-          </div>
-          <div className="space-y-2">
-            <div className="h-2 bg-gradient-to-r from-blue-200 via-blue-300 to-blue-200 rounded-full w-48 mx-auto animate-[shimmer_1.5s_infinite] bg-[length:200%_100%]"></div>
-            <p className="text-sm text-slate-400 font-medium">Cargando sistema...</p>
-          </div>
+          <div className="w-20 h-20 bg-gradient-to-br from-blue-700 to-blue-600 text-white rounded-3xl flex items-center justify-center font-black text-3xl shadow-[0_10px_40px_rgba(37,99,235,0.3)] mx-auto animate-[pulse_2s_infinite]">NH</div>
         </div>
       </div>
     );
@@ -520,131 +451,117 @@ function App() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 print:bg-white print:min-h-0 transition-colors duration-500">
       
       {notificacion && (
-        <NotificacionPush 
-          tipo={notificacion.tipo} 
-          mensaje={notificacion.mensaje} 
-          onClose={() => setNotificacion(null)} 
-        />
+        <NotificacionPush tipo={notificacion.tipo} mensaje={notificacion.mensaje} onClose={() => setNotificacion(null)} />
       )}
 
-      <Navbar 
-        usuario={usuario} 
-        vista={vista} 
-        setVista={setVista} 
-        onLogout={handleLogout} 
-        onAbrirHistorial={() => setMostrarHistorial(true)} 
-      />
+      <Navbar usuario={usuario} vista={vista} setVista={setVista} onLogout={handleLogout} onAbrirHistorial={() => setMostrarHistorial(true)} />
 
       <div className="max-w-6xl mx-auto p-6 print:p-0 animate-[fadeIn_0.5s_ease-out]">
-        
-        <div className="fixed inset-0 pointer-events-none opacity-[0.02]">
-          <div className="absolute top-20 left-10 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl animate-[pulse_8s_infinite]"></div>
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-emerald-500 rounded-full mix-blend-multiply filter blur-3xl animate-[pulse_10s_infinite]"></div>
-        </div>
-        
         {vista === 'mapa' && (
           <Mapa 
-            usuario={usuario} 
-            cocheras={cocheras} 
-            nuevoCodigo={nuevoCodigo} 
-            setNuevoCodigo={setNuevoCodigo} 
-            agregarCochera={agregarCochera} 
-            manejarClicCochera={manejarClicCochera} 
-            eliminarCochera={eliminarCochera}
-            reservas={reservas} 
-            miCochera={miCochera}
-            miPatente={miPatente}
-            reservaActivaUsuario={reservaActivaUsuario}
+            usuario={usuario} cocheras={cocheras} nuevoCodigo={nuevoCodigo} setNuevoCodigo={setNuevoCodigo} 
+            agregarCochera={agregarCochera} manejarClicCochera={manejarClicCochera} eliminarCochera={eliminarCochera}
+            reservas={reservas} miCochera={miCochera} miPatente={miPatente} reservaActivaUsuario={reservaActivaUsuario}
             onExtenderTiempo={solicitarExtensionDeTiempo} 
           />
         )}
-        
         {vista === 'dashboard' && usuario.rol === 'ADMIN' && (
           <Dashboard recaudacionTotal={recaudacionTotal} reservas={reservas} />
         )}
-
       </div>
 
       {mostrarHistorial && (
-        <ModalHistorial 
-          usuario={usuario} 
-          onClose={() => setMostrarHistorial(false)} 
-          onPagarDeuda={procesarPagoDeuda} 
-        />
+        <ModalHistorial usuario={usuario} onClose={() => setMostrarHistorial(false)} onPagarDeuda={procesarPagoDeuda} />
       )}
 
       <TicketModal ticketModal={ticketModal} setTicketModal={setTicketModal} imprimirTicket={() => window.print()} />
 
       {lugarParaReservar && !preferenceId && (
-        <ModalReserva 
-          lugar={lugarParaReservar} 
-          usuario={usuario}
-          onClose={() => setLugarParaReservar(null)} 
-          onConfirmar={procesarReserva}
-        />
+        <ModalReserva lugar={lugarParaReservar} usuario={usuario} onClose={() => setLugarParaReservar(null)} onConfirmar={procesarReserva} />
       )}
 
-      {/* 🚀 MODAL DE SIMULACIÓN PARA LA PRESENTACIÓN */}
+      <ModalAyuda isOpen={mostrarModalAyuda} onClose={cerrarModalAyuda} />
+
       {preferenceId && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center animate-[fadeIn_0.3s_ease-out]">
-            <h3 className="text-xl font-black text-slate-800 mb-2">Finalizar Pago</h3>
-            <p className="text-slate-500 mb-6 font-medium">Procesamiento de pago digital</p>
             
-            <div className="min-h-[100px] flex flex-col items-center justify-center w-full gap-4">
-              
-              {/* 🛑 COMPONENTE REAL DE MERCADO PAGO OCULTO 
-              <Wallet initialization={{ preferenceId: preferenceId }} customization={{ texts: { valueProp: 'smart_option' } }} /> 
-              */}
+            {estadoSimulador === 'inicio' && (
+              <>
+                <h3 className="text-xl font-black text-slate-800 mb-2">Pasarela de Pagos</h3>
+                <p className="text-slate-500 mb-6 font-medium text-sm">Módulo seguro de transacciones</p>
+                
+                <div className="min-h-[80px] flex flex-col items-center justify-center w-full gap-4">
+                  <button 
+                    onClick={ejecutarSimulacionPago} 
+                    className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-5 h-5 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                    Simular Pago
+                  </button>
+                </div>
+                
+                <div className="mt-4 flex flex-col gap-2">
+                  <button 
+                    onClick={() => { 
+                      setPreferenceId(null); 
+                      setLugarParaReservar(null);
+                      delete window._datosExtensionPendiente;
+                      delete window._datosReservaInicial;
+                      if (window._reservaDeudaActiva) {
+                        setMostrarHistorial(true);
+                        delete window._reservaDeudaActiva;
+                      }
+                      cargarCocheras();
+                      cargarReservas();
+                    }} 
+                    className="text-sm font-bold text-slate-400 hover:text-red-500 transition-colors"
+                  >
+                    Cancelar Operación
+                  </button>
+                </div>
+              </>
+            )}
 
-              {/* 🚀 BOTÓN ELEGANTE PARA SIMULAR EL PAGO */}
-              <button 
-                onClick={finalizarPagoMercadoPago} 
-                className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                Simular Pago Exitoso
-              </button>
+            {estadoSimulador === 'cargando' && (
+              <div className="py-8 flex flex-col items-center justify-center space-y-4">
+                 <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                 <p className="text-slate-600 font-bold">Procesando pago en el sistema...</p>
+              </div>
+            )}
 
-            </div>
-            
-            <div className="mt-4 flex flex-col gap-2">
-              <button 
-                onClick={() => { 
-                  setPreferenceId(null); 
-                  setLugarParaReservar(null);
-                  delete window._datosExtensionPendiente;
-                  if (window._reservaDeudaActiva) {
-                    setMostrarHistorial(true);
-                    delete window._reservaDeudaActiva;
-                  }
-                }} 
-                className="text-sm font-bold text-slate-400 hover:text-red-500 transition-colors"
-              >
-                Cancelar Operación
-              </button>
-            </div>
+            {estadoSimulador === 'exitoso' && (
+              <div className="py-4 animate-[fadeIn_0.5s_ease-out]">
+                 <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                 </div>
+                 <h3 className="text-2xl font-black text-slate-800 mb-2">¡Pago Realizado!</h3>
+                 <p className="text-slate-500 mb-6 font-medium">La transacción se completó con éxito.</p>
+                 
+                 <button 
+                    onClick={cerrarSimuladorYActualizar} 
+                    className="w-full py-3 px-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5"
+                 >
+                    Finalizar
+                 </button>
+              </div>
+            )}
+
           </div>
         </div>
       )}
 
       {lugarOcupadoInfo && (
-        <ModalFicha 
-          info={lugarOcupadoInfo}
-          onClose={() => setLugarOcupadoInfo(null)}
-          onLiberar={liberarCochera}
-        />
+        <ModalFicha info={lugarOcupadoInfo} onClose={() => setLugarOcupadoInfo(null)} onLiberar={liberarCochera} />
       )}
 
       <ModalConfirmacion 
-        isOpen={confirmacion.isOpen}
-        titulo={confirmacion.titulo}
-        mensaje={confirmacion.mensaje}
-        tipo={confirmacion.tipo}
-        onConfirmar={confirmacion.onConfirmar}
-        onCancelar={() => setConfirmacion({ ...confirmacion, isOpen: false })}
+        isOpen={confirmacion.isOpen} titulo={confirmacion.titulo} mensaje={confirmacion.mensaje} tipo={confirmacion.tipo}
+        onConfirmar={confirmacion.onConfirmar} onCancelar={() => setConfirmacion({ ...confirmacion, isOpen: false })}
       />
       
     </div>
